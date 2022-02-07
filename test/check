@@ -1,0 +1,46 @@
+#!/bin/sh -eux
+PATH=$BUILD_ROOT:$PATH
+
+maildir=$WORK_ROOT/Maildir
+
+do_mrss() {
+	mrss --verbose on "$@" $(
+		for f in "$TEST_ROOT/"*.xml; do
+			printf -- '--url file://%s ' "$f"
+		done
+	)
+}
+
+do_check() {
+	sed -i -s '/^Received:/d' */* ||:
+
+	for f in */*; do
+		test -f "$f" || continue
+		printf '\n==> %s <==\n' $f
+		cat -- "$f"
+	done >"$WORK_ROOT/got-$1"
+
+	diff -ud "$TEST_ROOT/expected-$1" "$WORK_ROOT/got-$1" > "$WORK_ROOT/diff-$1"
+}
+
+mkdir -p "$maildir"
+cd -- "$maildir"
+
+export TZ=EST
+rm -rf new cur tmp .mrssstate.*
+do_mrss
+do_check 0
+
+# State file works correctly.
+export TZ=MTZ
+rm -rf new cur tmp
+do_mrss
+do_check 1
+
+# Existing files are not touched.
+export TZ=GMT
+for f in new/* cur/*; do
+	echo blabla >>"$f"
+done
+do_mrss
+do_check 2

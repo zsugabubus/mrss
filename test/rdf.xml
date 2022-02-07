@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns="http://purl.org/rss/1.0/" xmlns:dc="http://purl.org/dc/elements/1.1/">
+	<channel rdf:about="https://web.nvd.nist.gov/view/vuln/search">
+		<title>National Vulnerability Database</title>
+		<link>https://web.nvd.nist.gov/view/vuln/search</link>
+		<description>This feed contains the most recent CVE cyber vulnerabilities published within the National Vulnerability Database.</description>
+		<items>
+			<rdf:Seq>
+				<rdf:li rdf:resource="https://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2013-20003" />
+				<rdf:li rdf:resource="https://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2018-25029" />
+				<rdf:li rdf:resource="https://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2020-12891" />
+				<rdf:li rdf:resource="https://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2020-12966" />
+			</rdf:Seq>
+		</items>
+		<dc:date>2022-02-05T21:00:00Z</dc:date>
+		<dc:language>en-us</dc:language>
+		<dc:rights>This material is not copywritten and may be freely used, however, attribution is requested.</dc:rights>
+	</channel>
+	<item rdf:about="https://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2013-20003">
+		<title>CVE-2Ö13-20003</title>
+		<link>https://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2013-20003</link>
+		<description>Z-Wave devices</description>
+		<dc:date>2022-02-04T23:15:09Z</dc:date>
+	</item>
+	<item rdf:about="https://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2018-25029">
+		<title>CVE-2018☠25029</title>
+		<link>https://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2018-25029</link>
+		<description>The Z-Wave</description>
+		<dc:date>2022-02-04T23:15:09Z</dc:date>
+	</item>
+	<item rdf:about="https://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2020-12891">
+	</item>
+</rdf:RDF>
+

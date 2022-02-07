@@ -1,0 +1,84 @@
+.TH MRSS "1" "October 2021"
+.SH NAME
+mrss \- transform web feeds to Maildir mails
+.
+.SH SYNOPSIS
+.
+.B mrss
+.RI "[ --" COMMAND "=" ARG " | --" COMMAND " " ARG " ]..."
+.
+.SH DESCRIPTION
+.B mrss
+creates Maildir mail messages from RSS or Atom feeds.
+.
+.SH COMMANDS
+.P
+Commands are executed sequentally.
+.
+.TP
+.BI config\  STRING
+Read file lines and execute whitespace separated
+.IR COMMAND - ARG
+pairs.
+.IP
+Empty lines and lines starting with
+.B #
+are ignored.
+.
+.TP
+.B include
+Synonym of
+.BR config .
+.
+.TP
+.BI path\  SHELL-STRING
+Change current working directory.
+.
+.IP
+Mails are created in
+.BR path /new.
+.
+.IP
+Substitutes
+.B ~
+and recognizes environment variables.
+.
+.TP
+.BI url\  STRING
+Crawl URL.
+.
+.TP
+.BI urls\  STRING
+Read file lines and crawl one URL per line.
+.IP
+Empty lines and lines starting with
+.B #
+are ignored.
+.
+.TP
+.BI from\  STRING
+Set "From:" header.
+.
+.TP
+.BI reply_to\  CHOICE
+Create a root mail for the channel in
+.BR path /cur
+and reply to it. Default: yes.
+.
+.TP
+.BI language\  REGEX
+Select news by matching language. Default: (empty) (all languages).
+.
+.TP
+.BI category\  REGEX
+Select news by matching category. Default: (empty) (all categories).
+.
+.TP
+.BI proxy\  STRING
+Use proxy. Default: (empty) (no proxy).
+.IP
+Example: socks5://127.0.0.1:9050.
+.
+.SH "SEE ALSO"
+.B mutt(1)
+.B regex(7)
