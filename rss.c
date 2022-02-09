@@ -1,6 +1,9 @@
 #include "mrss.h"
 
 /* @see https://validator.w3.org/feed/docs/rss2.html */
+/* @see https://web.resource.org/rss/1.0/modules/content/ */
+
+static xmlChar const NS_CONTENT[] = "http://purl.org/rss/1.0/modules/content/";
 
 static void
 rss_parse_item(xmlNodePtr item, struct entity const *channel)
@@ -26,6 +29,7 @@ rss_parse_item(xmlNodePtr item, struct entity const *channel)
 		.lang = xmlStrdup(channel->lang),
 		.link = link,
 		.summary = xmlGetNsChildContent(item, "description", NULL),
+		.content = xmlGetNsChildContent(item, "encoded", NS_CONTENT),
 		.title = xmlGetNsChildContent(item, "title", NULL),
 	};
 
