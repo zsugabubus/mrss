@@ -6,7 +6,6 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <libxml/tree.h>
-#include <regex.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -41,8 +40,6 @@ static char opt_proxy[1024];
 static char opt_from[128];
 static int opt_reply_to = 1;
 static int opt_verbose;
-static regex_t opt_category;
-static regex_t opt_language;
 
 static CURL *curl;
 static char curl_error_buf[CURL_ERROR_SIZE];
@@ -478,14 +475,6 @@ xml_write_cb(char *buf, size_t size, size_t nmemb, void *userdata)
 void
 entity_push(struct entity const *item, struct entity const *channel)
 {
-	if (item->lang &&
-	    REG_NOMATCH == regexec(&opt_language, (char *)item->lang, 0, NULL, 0))
-		return;
-
-	if (item->category &&
-	    REG_NOMATCH == regexec(&opt_category, (char *)item->category, 0, NULL, 0))
-		return;
-
 	time_t date = 0;
 	xmlChar const *s = item->date;
 	if (s) {
@@ -699,20 +688,6 @@ set_shellstr_opt(char *buf, size_t buf_size, char const *arg)
 }
 
 static void
-set_regex_opt(regex_t *regex, char const *arg)
-{
-	regfree(regex);
-
-	int rc = regcomp(regex, arg, REG_EXTENDED | REG_ICASE | REG_NOSUB);
-	if (!rc)
-		return;
-
-	char buf[100];
-	regerror(rc, regex, buf, sizeof buf);
-	error("invalid regex '%s': %s", arg, buf);
-}
-
-static void
 set_bool_opt(int *b, char const *arg)
 {
 	if (!strcmp(arg, "y") ||
@@ -758,10 +733,6 @@ do_cmd(char const *cmd, char const *arg)
 		crawl_url(arg);
 	else if (!strcmp(cmd, "urls"))
 		crawl_file(arg);
-	else if (!strcmp(cmd, "language"))
-		set_regex_opt(&opt_language, arg);
-	else if (!strcmp(cmd, "category"))
-		set_regex_opt(&opt_category, arg);
 	else
 		error("unknown command: '%s'", cmd);
 }
@@ -770,9 +741,6 @@ int
 main(int argc, char *argv[])
 {
 	LIBXML_TEST_VERSION
-
-	regcomp(&opt_language, "", REG_NOSUB);
-	regcomp(&opt_category, "", REG_NOSUB);
 
 	for (int argi = 1; argi < argc;) {
 		if ('-' != argv[argi][0] ||
