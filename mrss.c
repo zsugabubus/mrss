@@ -513,6 +513,8 @@ entity_push(struct entity const *item, struct entity const *channel)
 
 	mail_write_from_hdr(&mail, channel);
 	mail_write_hdr(&mail, "Subject: %t", item->title);
+	/* TODO: Support multiple categories. */
+	mail_write_hdr(&mail, "X-Category: %t", item->category);
 	mail_write_hdr(&mail, "Author: %t", item->author);
 	mail_write_hdr(&mail, "Link: %t", item->link);
 
