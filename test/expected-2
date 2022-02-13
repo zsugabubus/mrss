@@ -1,48 +1,47 @@
 
-==> cur/0.23c935bf3c77d620.localhost:2,S <==
-Message-ID: <23c935bf3c77d620@web.nvd.nist.gov>
+==> cur/0.45b844e53acdf792.localhost:2,S <==
+Message-ID: <45b844e53acdf792@web.nvd.nist.gov>
 From: "National Vulnerability Database" <feed@web.nvd.nist.gov>
 Subject: National Vulnerability Database
 Link: https://web.nvd.nist.gov/view/vuln/search
+Content-Type: text/html; charset=utf-8
 
 This feed contains the most recent CVE cyber vulnerabilities published within the National Vulnerability Database.blabla
 
-==> cur/0.2c8e073a48458a72.localhost:2,S <==
-Message-ID: <2c8e073a48458a72@feed-alternate>
+==> cur/0.7a8a3ff1706ab97e.localhost:2,S <==
+Message-ID: <7a8a3ff1706ab97e@feed-alternate>
 From: " FEED-TITLE	" <feed@feed-alternate>
 Subject:  FEED-TITLE	
 Link: feed-alternate
 blabla
 
-==> cur/0.ac62eeb229d29fc9.localhost:2,S <==
-Message-ID: <ac62eeb229d29fc9@liftoff.msfc.nasa.gov>
+==> cur/0.e66bde82b0f7dc7f.localhost:2,S <==
+Message-ID: <e66bde82b0f7dc7f@liftoff.msfc.nasa.gov>
 From: "Liftoff News" <feed@liftoff.msfc.nasa.gov>
 Subject: Liftoff News
 Link: http://liftoff.msfc.nasa.gov/
+Content-Type: text/html; charset=utf-8
 
 Liftoff to Space Exploration.blabla
 
-==> new/0.0642c35d7087013c.localhost <==
-Message-ID: <0642c35d7087013c>
-In-Reply-To: <ac62eeb229d29fc9@liftoff.msfc.nasa.gov>
-Content-Type: text/html; charset=utf-8
+==> new/0.898010af13b37023.localhost <==
+Message-ID: <898010af13b37023>
+In-Reply-To: <e66bde82b0f7dc7f@liftoff.msfc.nasa.gov>
 Content-Language: en-us
 Content-Transfer-Encoding: binary
 From: "Liftoff News" <feed@liftoff.msfc.nasa.gov>
 blabla
 
-==> new/0.7ab7c07d8c7985ff.localhost <==
-Message-ID: <7ab7c07d8c7985ff>
-In-Reply-To: <2c8e073a48458a72@feed-alternate>
-Content-Type: text/html; charset=utf-8
+==> new/0.9cac1df2c686d8f1.localhost <==
+Message-ID: <9cac1df2c686d8f1>
+In-Reply-To: <7a8a3ff1706ab97e@feed-alternate>
 Content-Transfer-Encoding: binary
 From: " FEED-TITLE	" <feed@feed-alternate>
 blabla
 
-==> new/0.c5de8e2ffcb370b0.localhost <==
-Message-ID: <c5de8e2ffcb370b0>
-In-Reply-To: <23c935bf3c77d620@web.nvd.nist.gov>
-Content-Type: text/html; charset=utf-8
+==> new/0.b2d208a7a2a1bf37.localhost <==
+Message-ID: <b2d208a7a2a1bf37>
+In-Reply-To: <45b844e53acdf792@web.nvd.nist.gov>
 Content-Language: en-us
 Content-Transfer-Encoding: binary
 From: "National Vulnerability Database" <feed@web.nvd.nist.gov>

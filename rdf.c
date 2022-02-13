@@ -39,21 +39,24 @@ rdf_find_item(xmlNodePtr li, xmlNodePtr rdf)
 }
 
 static void
-rdf_parse_item(xmlNodePtr item, struct entity const *channel)
+rdf_parse_item(xmlNodePtr item, struct post const *group)
 {
-	struct entity entity = {
+	struct post post = {
 		.date = xmlGetNsChildContent(item, "date", NS_DC),
 		.lang = xmlGetNsChildContent(item, "language", NS_DC),
 		.link = xmlGetNsChildContent(item, "link", NS_RSS10),
-		.summary = xmlGetNsChildContent(item, "description", NS_RSS10),
-		.title = xmlGetNsChildContent(item, "title", NS_RSS10),
+		.subject = xmlGetNsChildContent(item, "title", NS_RSS10),
+		.text = (struct media){
+			.mime_type = MIME_TEXT_HTML,
+			.content = xmlGetNsChildContent(item, "description", NS_RSS10),
+		},
 	};
-	if (!entity.lang)
-		entity.lang = xmlStrdup(channel->lang);
+	if (!post.lang)
+		post.lang = xmlStrdup(group->lang);
 
-	entity_push(&entity, channel);
+	post_push(&post, group);
 
-	entity_destroy(&entity);
+	post_destroy(&post);
 }
 
 static void
@@ -66,11 +69,14 @@ rdf_parse_channel(xmlNodePtr channel, xmlNodePtr rdf)
 	if (!seq)
 		return;
 
-	struct entity entity = {
+	struct post group = {
 		.lang = xmlGetNsChildContent(channel, "language", NS_DC),
 		.link = xmlGetNsChildContent(channel, "link", NS_RSS10),
-		.summary = xmlGetNsChildContent(channel, "description", NS_RSS10),
-		.title = xmlGetNsChildContent(channel, "title", NS_RSS10),
+		.subject = xmlGetNsChildContent(channel, "title", NS_RSS10),
+		.text = (struct media){
+			.mime_type = MIME_TEXT_HTML,
+			.content = xmlGetNsChildContent(channel, "description", NS_RSS10),
+		},
 	};
 
 	for eachXmlElement(child, seq) {
@@ -81,10 +87,10 @@ rdf_parse_channel(xmlNodePtr channel, xmlNodePtr rdf)
 		if (!item)
 			continue;
 
-		rdf_parse_item(item, &entity);
+		rdf_parse_item(item, &group);
 	}
 
-	entity_destroy(&entity);
+	post_destroy(&group);
 }
 
 int

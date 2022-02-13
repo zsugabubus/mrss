@@ -47,18 +47,23 @@ static char curl_error_buf[CURL_ERROR_SIZE];
 static time_t feed_old_latest;
 static time_t feed_new_latest;
 
-void
-entity_destroy(struct entity *e)
+static void
+media_destroy(struct media *media)
 {
-	xmlFree(e->author);
-	xmlFree(e->category);
-	xmlFree(e->content);
-	xmlFree(e->date);
-	xmlFree(e->id);
-	xmlFree(e->lang);
-	xmlFree(e->link);
-	xmlFree(e->summary);
-	xmlFree(e->title);
+	xmlFree(media->content);
+}
+
+void
+post_destroy(struct post *post)
+{
+	xmlFree(post->author);
+	xmlFree(post->category);
+	xmlFree(post->date);
+	xmlFree(post->id);
+	xmlFree(post->lang);
+	xmlFree(post->link);
+	xmlFree(post->subject);
+	media_destroy(&post->text);
 }
 
 static void
@@ -204,18 +209,17 @@ hash_str(HASH hash, char const *s)
 }
 
 static void
-hash_entity(HASH hash, struct entity const *e, char const *source)
+hash_post(HASH hash, struct post const *post, char const *source)
 {
 	SHA1_CTX ctx;
 	sha1_init(&ctx);
 
-	sha1_update_strnull(&ctx, (char const *)e->id);
-	sha1_update_strnull(&ctx, (char const *)e->link);
-	sha1_update_strnull(&ctx, (char const *)e->lang);
-	sha1_update_strnull(&ctx, (char const *)e->title);
-	sha1_update_strnull(&ctx, (char const *)e->date);
-	sha1_update_strnull(&ctx, (char const *)e->summary);
-	sha1_update_strnull(&ctx, (char const *)e->content);
+	sha1_update_strnull(&ctx, (char const *)post->id);
+	sha1_update_strnull(&ctx, (char const *)post->link);
+	sha1_update_strnull(&ctx, (char const *)post->lang);
+	sha1_update_strnull(&ctx, (char const *)post->subject);
+	sha1_update_strnull(&ctx, (char const *)post->date);
+	sha1_update_strnull(&ctx, (char const *)post->text.content);
 	sha1_update_strnull(&ctx, source);
 
 	BYTE bytes[16];
@@ -398,7 +402,7 @@ get_domain(char **url)
 }
 
 static void
-mail_write_from_hdr(struct mail *mail, struct entity const *channel)
+mail_write_from_hdr(struct mail *mail, struct post const *group)
 {
 	char *phrase = NULL;
 	char *addr_spec = NULL;
@@ -406,8 +410,8 @@ mail_write_from_hdr(struct mail *mail, struct entity const *channel)
 	if (*opt_from)
 		phrase = opt_from;
 	else
-		phrase = (char *)channel->title;
-	addr_spec = (char *)channel->link;
+		phrase = (char *)group->subject;
+	addr_spec = (char *)group->link;
 
 	char *slash = get_domain(&addr_spec);
 	if (phrase)
@@ -419,20 +423,20 @@ mail_write_from_hdr(struct mail *mail, struct entity const *channel)
 }
 
 static void
-mail_write_channel_id_hdr(struct mail *mail, char const *name, struct entity const *channel)
+mail_write_message_id_hdr(struct mail *mail, char const *name, struct post const *group)
 {
-	HASH channel_id;
-	hash_entity(channel_id, channel, NULL);
+	HASH id;
+	hash_post(id, group, NULL);
 
-	char *s = (char *)channel->link;
+	char *s = (char *)group->link;
 	char *slash = get_domain(&s);
-	mail_write_hdr(mail, "%s: <%s@%s>", name, channel_id, s);
+	mail_write_hdr(mail, "%s: <%s@%s>", name, id, s);
 	if (slash)
 		*slash = '/';
 }
 
 static void
-generate_channel_mail(struct entity const *channel)
+generate_root_mail(struct post const *group)
 {
 	if (!opt_reply_to)
 		return;
@@ -440,15 +444,17 @@ generate_channel_mail(struct entity const *channel)
 	struct mail mail;
 	mail_create(&mail);
 
-	mail_write_channel_id_hdr(&mail, "Message-ID", channel);
-	mail_write_from_hdr(&mail, channel);
-	mail_write_hdr(&mail, "Subject: %t", channel->title);
-	mail_write_hdr(&mail, "Link: %t", channel->link);
-	if (channel->summary)
-		fprintf(mail.stream, "\n%s", (char const *)channel->summary);
+	mail_write_message_id_hdr(&mail, "Message-ID", group);
+	mail_write_from_hdr(&mail, group);
+	mail_write_hdr(&mail, "Subject: %t", group->subject);
+	mail_write_hdr(&mail, "Link: %t", group->link);
+	if (group->text.content) {
+		mail_write_hdr(&mail, "Content-Type: %s", group->text.mime_type);
+		fprintf(mail.stream, "\n%s", (char const *)group->text.content);
+	}
 
 	HASH id;
-	hash_entity(id, channel, NULL);
+	hash_post(id, group, NULL);
 	mail_commit(&mail, id, 0);
 }
 
@@ -473,12 +479,11 @@ xml_write_cb(char *buf, size_t size, size_t nmemb, void *userdata)
 }
 
 void
-entity_push(struct entity const *item, struct entity const *channel)
+post_push(struct post const *item, struct post const *group)
 {
 	time_t date = 0;
-	xmlChar const *s = item->date;
-	if (s) {
-		date = parse_date((char *)s);
+	if (item->date) {
+		date = parse_date((char *)item->date);
 
 		if (date <= feed_old_latest)
 			return;
@@ -487,13 +492,13 @@ entity_push(struct entity const *item, struct entity const *channel)
 			feed_new_latest = date;
 	}
 
-	generate_channel_mail(channel);
+	generate_root_mail(group);
 
 	struct mail mail;
 	mail_create(&mail);
 
 	HASH id;
-	hash_entity(id, item, (char const *)channel->link);
+	hash_post(id, item, (char const *)group->link);
 
 	char datetime[50];
 	time_t now = time(NULL);
@@ -501,8 +506,7 @@ entity_push(struct entity const *item, struct entity const *channel)
 	mail_write_hdr(&mail, "Received: mrss; %s", datetime);
 
 	mail_write_hdr(&mail, "Message-ID: <%s>", id);
-	mail_write_channel_id_hdr(&mail, "In-Reply-To", channel);
-	mail_write_hdr(&mail, "Content-Type: text/html; charset=utf-8");
+	mail_write_message_id_hdr(&mail, "In-Reply-To", group);
 	mail_write_hdr(&mail, "Content-Language: %t", item->lang);
 	mail_write_hdr(&mail, "Content-Transfer-Encoding: binary");
 
@@ -511,16 +515,16 @@ entity_push(struct entity const *item, struct entity const *channel)
 		mail_write_hdr(&mail, "Date: %s", datetime);
 	}
 
-	mail_write_from_hdr(&mail, channel);
-	mail_write_hdr(&mail, "Subject: %t", item->title);
+	mail_write_from_hdr(&mail, group);
+	mail_write_hdr(&mail, "Subject: %t", item->subject);
 	/* TODO: Support multiple categories. */
 	mail_write_hdr(&mail, "X-Category: %t", item->category);
 	mail_write_hdr(&mail, "Author: %t", item->author);
 	mail_write_hdr(&mail, "Link: %t", item->link);
-
-	s = item->content ? item->content : item->summary;
-	if (s)
-		fprintf(mail.stream, "\n%s", (char const *)s);
+	if (item->text.content) {
+		mail_write_hdr(&mail, "Content-Type: %s", item->text.mime_type);
+		fprintf(mail.stream, "\n%s", (char const *)item->text.content);
+	}
 
 	mail_commit(&mail, id, 1);
 }

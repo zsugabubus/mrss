@@ -6,7 +6,7 @@
 static xmlChar const NS_CONTENT[] = "http://purl.org/rss/1.0/modules/content/";
 
 static void
-rss_parse_item(xmlNodePtr item, struct entity const *channel)
+rss_parse_item(xmlNodePtr item, struct post const *group)
 {
 	xmlNodePtr guid_node = xmlGetNsChild(item, "guid", NULL);
 	xmlChar *guid = guid_node ? xmlNodeGetContent(guid_node) : NULL;
@@ -22,38 +22,52 @@ rss_parse_item(xmlNodePtr item, struct entity const *channel)
 	if (!link && guid && !xmlStrncmp(guid, XML_CHAR "http", 4))
 		link = xmlStrdup(guid);
 
-	struct entity entity = {
+	struct media text;
+	text = (struct media){
+		.mime_type = MIME_TEXT_HTML,
+		.content = xmlGetNsChildContent(item, "description", NULL),
+	};
+
+	if (!text.content)
+		text = (struct media){
+			.mime_type = MIME_TEXT_HTML,
+			.content = xmlGetNsChildContent(item, "encoded", NS_CONTENT),
+		};
+
+	struct post post = {
 		.author = xmlGetNsChildContent(item, "author", NULL),
 		.date = xmlGetNsChildContent(item, "pubDate", NULL),
 		.id = guid,
-		.lang = xmlStrdup(channel->lang),
+		.lang = xmlStrdup(group->lang),
 		.link = link,
-		.summary = xmlGetNsChildContent(item, "description", NULL),
-		.content = xmlGetNsChildContent(item, "encoded", NS_CONTENT),
-		.title = xmlGetNsChildContent(item, "title", NULL),
+		.subject = xmlGetNsChildContent(item, "title", NULL),
+		.text = text,
 	};
 
-	entity_push(&entity, channel);
+	post_push(&post, group);
 
-	entity_destroy(&entity);
+	post_destroy(&post);
 }
 
 static void
 rss_parse_channel(xmlNodePtr channel)
 {
-	struct entity entity = {
+	struct post group = {
 		.category = xmlGetNsChildContent(channel, "category", NULL),
 		.lang = xmlGetNsChildContent(channel, "language", NULL),
 		.link = xmlGetNsChildContent(channel, "link", NULL),
-		.summary = xmlGetNsChildContent(channel, "description", NULL),
-		.title = xmlGetNsChildContent(channel, "title", NULL),
+		.subject = xmlGetNsChildContent(channel, "title", NULL),
+		.text = (struct media){
+			.mime_type = MIME_TEXT_HTML,
+			.content = xmlGetNsChildContent(channel, "description", NULL),
+		},
 	};
 
 	for eachXmlElement(child, channel)
 		if (xmlTestNode(child, "item", NULL))
-			rss_parse_item(child, &entity);
+			rss_parse_item(child, &group);
 
-	entity_destroy(&entity);
+	post_destroy(&group);
 }
 
 int
