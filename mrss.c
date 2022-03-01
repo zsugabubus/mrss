@@ -694,7 +694,7 @@ set_shellstr_opt(char *buf, size_t buf_size, char const *arg)
 }
 
 static void
-set_bool_opt(int *b, char const *arg)
+set_choice_opt(int *b, char const *arg)
 {
 	if (!strcmp(arg, "y") ||
 	    !strcmp(arg, "yes") ||
@@ -725,11 +725,11 @@ do_cmd(char const *cmd, char const *arg)
 			error("failed to change current directory to '%s': %s",
 					path, strerror(errno));
 	} else if (!strcmp(cmd, "reply_to"))
-		set_bool_opt(&opt_reply_to, arg);
+		set_choice_opt(&opt_reply_to, arg);
 	else if (!strcmp(cmd, "from"))
 		set_str_opt(opt_from, sizeof opt_from, arg);
 	else if (!strcmp(cmd, "verbose")) {
-		set_bool_opt(&opt_verbose, arg);
+		set_choice_opt(&opt_verbose, arg);
 		if (opt_verbose)
 			puts(VERSION);
 	} else if (!strcmp(cmd, "config") ||
