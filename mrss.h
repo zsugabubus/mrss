@@ -11,7 +11,7 @@ struct media {
 	xmlChar *content;
 };
 
-struct post {
+struct entry {
 	xmlChar *author;
 	xmlChar *category;
 	xmlChar *date;
@@ -22,8 +22,8 @@ struct post {
 	struct media text;
 };
 
-void post_push(struct post const *post, struct post const *group);
-void post_destroy(struct post *post);
+void entry_process(struct entry const *entry, struct entry const *feed);
+void entry_destroy(struct entry *entry);
 
 int atom_parse(xmlNodePtr);
 int rdf_parse(xmlNodePtr);

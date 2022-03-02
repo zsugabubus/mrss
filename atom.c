@@ -35,9 +35,9 @@ atom_get_link(xmlNodePtr node)
 }
 
 static void
-atom_parse_entry(xmlNodePtr entry, struct post const *group)
+atom_parse_entry(xmlNodePtr node, struct entry const *feed)
 {
-	xmlNodePtr category = xmlGetNsChild(entry, "category", NS_ATOM);
+	xmlNodePtr category = xmlGetNsChild(node, "category", NS_ATOM);
 	xmlChar *category_term = NULL;
 	if (category)
 		category_term  = xmlGetNoNsProp(category, XML_CHAR "term");
@@ -45,10 +45,10 @@ atom_parse_entry(xmlNodePtr entry, struct post const *group)
 	struct media text;
 	text = (struct media){
 		.mime_type = MIME_TEXT_HTML,
-		.content = xmlGetNsChildContent(entry, "content", NS_ATOM),
+		.content = xmlGetNsChildContent(node, "content", NS_ATOM),
 	};
 	if (!text.content) {
-		xmlNodePtr media_group = xmlGetNsChild(entry, "group", NS_MEDIA);
+		xmlNodePtr media_group = xmlGetNsChild(node, "group", NS_MEDIA);
 		if (media_group)
 			text = (struct media){
 				.mime_type = MIME_TEXT_PLAIN,
@@ -58,48 +58,48 @@ atom_parse_entry(xmlNodePtr entry, struct post const *group)
 	if (!text.content)
 		text = (struct media){
 			.mime_type = MIME_TEXT_HTML,
-			.content = xmlGetNsChildContent(entry, "summary", NS_ATOM),
+			.content = xmlGetNsChildContent(node, "summary", NS_ATOM),
 		};
 
-	struct post post = {
-		.author = atom_get_author(entry),
+	struct entry entry = {
+		.author = atom_get_author(node),
 		.category = category_term,
-		.date = xmlGetNsChildContent(entry, "updated", NS_ATOM),
-		.id = xmlGetNsChildContent(entry, "id", NS_ATOM),
-		.lang = xmlStrdup(group->lang),
-		.link = atom_get_link(entry),
-		.subject = xmlGetNsChildContent(entry, "title", NS_ATOM),
+		.date = xmlGetNsChildContent(node, "updated", NS_ATOM),
+		.id = xmlGetNsChildContent(node, "id", NS_ATOM),
+		.lang = xmlStrdup(feed->lang),
+		.link = atom_get_link(node),
+		.subject = xmlGetNsChildContent(node, "title", NS_ATOM),
 		.text = text,
 	};
 
-	post_push(&post, group);
+	entry_process(&entry, feed);
 
-	post_destroy(&post);
+	entry_destroy(&entry);
 }
 
 int
-atom_parse(xmlNodePtr atom)
+atom_parse(xmlNodePtr node)
 {
-	if (!xmlTestNode(atom, "feed", NS_ATOM))
+	if (!xmlTestNode(node, "feed", NS_ATOM))
 		return 0;
 
-	struct post group = {
-		.author = atom_get_author(atom),
-		.id = xmlGetNsChildContent(atom, "id", NS_ATOM),
-		.lang = xmlGetNsChildContent(atom, "language", NS_ATOM),
-		.link = atom_get_link(atom),
-		.subject = xmlGetNsChildContent(atom, "title", NS_ATOM),
+	struct entry feed = {
+		.author = atom_get_author(node),
+		.id = xmlGetNsChildContent(node, "id", NS_ATOM),
+		.lang = xmlGetNsChildContent(node, "language", NS_ATOM),
+		.link = atom_get_link(node),
+		.subject = xmlGetNsChildContent(node, "title", NS_ATOM),
 		.text = (struct media){
 			.mime_type = MIME_TEXT_HTML,
-			.content = xmlGetNsChildContent(atom, "description", NS_ATOM),
+			.content = xmlGetNsChildContent(node, "description", NS_ATOM),
 		},
 	};
 
-	for eachXmlElement(child, atom)
+	for eachXmlElement(child, node)
 		if (xmlTestNode(child, "entry", NS_ATOM))
-			atom_parse_entry(child, &group);
+			atom_parse_entry(child, &feed);
 
-	post_destroy(&group);
+	entry_destroy(&feed);
 
 	return 1;
 }

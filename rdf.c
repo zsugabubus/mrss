@@ -39,43 +39,43 @@ rdf_find_item(xmlNodePtr li, xmlNodePtr rdf)
 }
 
 static void
-rdf_parse_item(xmlNodePtr item, struct post const *group)
+rdf_parse_item(xmlNodePtr node, struct entry const *feed)
 {
-	struct post post = {
-		.date = xmlGetNsChildContent(item, "date", NS_DC),
-		.lang = xmlGetNsChildContent(item, "language", NS_DC),
-		.link = xmlGetNsChildContent(item, "link", NS_RSS10),
-		.subject = xmlGetNsChildContent(item, "title", NS_RSS10),
+	struct entry entry = {
+		.date = xmlGetNsChildContent(node, "date", NS_DC),
+		.lang = xmlGetNsChildContent(node, "language", NS_DC),
+		.link = xmlGetNsChildContent(node, "link", NS_RSS10),
+		.subject = xmlGetNsChildContent(node, "title", NS_RSS10),
 		.text = (struct media){
 			.mime_type = MIME_TEXT_HTML,
-			.content = xmlGetNsChildContent(item, "description", NS_RSS10),
+			.content = xmlGetNsChildContent(node, "description", NS_RSS10),
 		},
 	};
-	if (!post.lang)
-		post.lang = xmlStrdup(group->lang);
+	if (!entry.lang)
+		entry.lang = xmlStrdup(feed->lang);
 
-	post_push(&post, group);
+	entry_process(&entry, feed);
 
-	post_destroy(&post);
+	entry_destroy(&entry);
 }
 
 static void
-rdf_parse_channel(xmlNodePtr channel, xmlNodePtr rdf)
+rdf_parse_channel(xmlNodePtr node, xmlNodePtr rdf)
 {
-	xmlNodePtr items = xmlGetNsChild(channel, "items", NS_RSS10);
+	xmlNodePtr items = xmlGetNsChild(node, "items", NS_RSS10);
 	if (!items)
 		return;
 	xmlNodePtr seq = xmlGetNsChild(items, "Seq", NS_RDF);
 	if (!seq)
 		return;
 
-	struct post group = {
-		.lang = xmlGetNsChildContent(channel, "language", NS_DC),
-		.link = xmlGetNsChildContent(channel, "link", NS_RSS10),
-		.subject = xmlGetNsChildContent(channel, "title", NS_RSS10),
+	struct entry feed = {
+		.lang = xmlGetNsChildContent(node, "language", NS_DC),
+		.link = xmlGetNsChildContent(node, "link", NS_RSS10),
+		.subject = xmlGetNsChildContent(node, "title", NS_RSS10),
 		.text = (struct media){
 			.mime_type = MIME_TEXT_HTML,
-			.content = xmlGetNsChildContent(channel, "description", NS_RSS10),
+			.content = xmlGetNsChildContent(node, "description", NS_RSS10),
 		},
 	};
 
@@ -87,21 +87,21 @@ rdf_parse_channel(xmlNodePtr channel, xmlNodePtr rdf)
 		if (!item)
 			continue;
 
-		rdf_parse_item(item, &group);
+		rdf_parse_item(item, &feed);
 	}
 
-	post_destroy(&group);
+	entry_destroy(&feed);
 }
 
 int
-rdf_parse(xmlNodePtr rdf)
+rdf_parse(xmlNodePtr node)
 {
-	if (!xmlTestNode(rdf, "RDF", NS_RDF))
+	if (!xmlTestNode(node, "RDF", NS_RDF))
 		return 0;
 
-	for eachXmlElement(child, rdf)
+	for eachXmlElement(child, node)
 		if (xmlTestNode(child, "channel", NS_RSS10))
-			rdf_parse_channel(child, rdf);
+			rdf_parse_channel(child, node);
 
 	return 1;
 }

@@ -1,16 +1,17 @@
-#define _XOPEN_SOURCE
-#define _POSIX_C_SOURCE 200809L
+#define _GNU_SOURCE
 
 #include <ctype.h>
 #include <curl/curl.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <libxml/tree.h>
+#include <setjmp.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <syslog.h>
 #include <time.h>
 #include <unistd.h>
 #include <wordexp.h>
@@ -35,17 +36,27 @@ enum rfc822_type {
 typedef char HASH[16 + 1 /* NUL */];
 
 static char const RFC_822[] = "%a, %d %b %Y %T %z";
+/* Shall be always GMT. Use with gmtime(). */
+static char const RFC_2616[] = "%a, %d %b %Y %T %Z";
 
 static char opt_proxy[1024];
 static char opt_from[128];
 static int opt_reply_to = 1;
-static int opt_verbose;
+static int opt_verbose = 0;
+static int opt_expiration = 0;
+
+static long local_timezone;
 
 static CURL *curl;
 static char curl_error_buf[CURL_ERROR_SIZE];
+struct {
+	time_t last_modified;
+	time_t expiration;
+	char etag[1024];
+} old_state, new_state;
 
-static time_t feed_old_latest;
-static time_t feed_new_latest;
+static jmp_buf errctx;
+static int have_errctx;
 
 static void
 media_destroy(struct media *media)
@@ -54,29 +65,43 @@ media_destroy(struct media *media)
 }
 
 void
-post_destroy(struct post *post)
+entry_destroy(struct entry *e)
 {
-	xmlFree(post->author);
-	xmlFree(post->category);
-	xmlFree(post->date);
-	xmlFree(post->id);
-	xmlFree(post->lang);
-	xmlFree(post->link);
-	xmlFree(post->subject);
-	media_destroy(&post->text);
+	xmlFree(e->author);
+	xmlFree(e->category);
+	xmlFree(e->date);
+	xmlFree(e->id);
+	xmlFree(e->lang);
+	xmlFree(e->link);
+	xmlFree(e->subject);
+	media_destroy(&e->text);
 }
 
 static void
-error(char const *format, ...)
+msg(int priority, char const *format, ...)
 {
+	switch (priority) {
+	case LOG_INFO:
+	case LOG_DEBUG:
+		if (!opt_verbose)
+			return;
+	}
+
 	fputs("mrss: ", stderr);
+
 	va_list ap;
 	va_start(ap, format);
 	vfprintf(stderr, format, ap);
 	va_end(ap);
 	fputc('\n', stderr);
 
-	exit(EXIT_FAILURE);
+	if (LOG_ERR == priority) {
+		if (have_errctx) {
+			longjmp(errctx, 1);
+		} else {
+			exit(EXIT_FAILURE);
+		}
+	}
 }
 
 static void
@@ -87,7 +112,7 @@ xsnprintf(char *buf, size_t buf_size, char const *format, ...)
 	int n = vsnprintf(buf, buf_size, format, ap);
 	va_end(ap);
 	if ((int)buf_size <= n)
-		error("too long string: '%s'...", buf);
+		msg(LOG_ERR, "Too long string: '%s'...", buf);
 }
 
 static FILE *
@@ -95,7 +120,7 @@ xfopen(char const *pathname, char const *mode)
 {
 	FILE *f = fopen(pathname, mode);
 	if (!f)
-		error("cannot open '%s': %s", pathname, strerror(errno));
+		msg(LOG_ERR, "Cannot open '%s': %s", pathname, strerror(errno));
 	return f;
 }
 
@@ -104,7 +129,7 @@ xftmpopen(char *template)
 {
 	int fd = mkstemp(template);
 	if (fd < 0)
-		error("cannot create temporary file: %s", strerror(errno));
+		msg(LOG_ERR, "Cannot create temporary file: %s", strerror(errno));
 	return fdopen(fd, "w+");
 }
 
@@ -112,21 +137,21 @@ static void
 xfclose(FILE *f, char const *pathname)
 {
 	if (fclose(f))
-		error("cannot write '%s': %s", pathname, strerror(errno));
+		msg(LOG_ERR, "Cannot write '%s': %s", pathname, strerror(errno));
 }
 
 static void
 xmkdir(char const *path)
 {
 	if (mkdir(path, S_IRWXU) && EEXIST != errno)
-		error("cannot create '%s': %s", path, strerror(errno));
+		msg(LOG_ERR, "Cannot create '%s': %s", path, strerror(errno));
 }
 
 static void
 xrename(char const *old, char const *new)
 {
 	if (rename(old, new))
-		error("cannot rename '%s' -> '%s': %s",
+		msg(LOG_ERR, "Cannot rename '%s' -> '%s': %s",
 				old, new, strerror(errno));
 }
 
@@ -134,7 +159,7 @@ static void
 xlink(char const *from, char const *to)
 {
 	if (link(from, to) && EEXIST != errno)
-		error("cannot link '%s' -> '%s': %s",
+		msg(LOG_ERR, "Cannot link '%s' -> '%s': %s",
 				from, to, strerror(errno));
 	(void)unlink(from);
 }
@@ -142,16 +167,21 @@ xlink(char const *from, char const *to)
 static int
 xfgets(char *s, int size, FILE *stream)
 {
-	while (fgets(s, size, stream)) {
-		if ('#' == *s)
-			continue;
-
+	if (fgets(s, size, stream)) {
 		char *end = strchr(s, '\n');
 		if (end)
 			*end = '\0';
-		if (!*s)
-			continue;
+		return 1;
+	}
+	return 0;
+}
 
+static int
+xfgets_config(char *s, int size, FILE *stream)
+{
+	while (xfgets(s, size, stream)) {
+		if (!*s || '#' == *s)
+			continue;
 		return 1;
 	}
 	return 0;
@@ -160,17 +190,39 @@ xfgets(char *s, int size, FILE *stream)
 static time_t
 parse_date(char const *s)
 {
-	static struct tm const ZERO_TM;
+	static char const *const FORMATS[] = {
+		RFC_822,
+		RFC_2616,
+		"%FT%T%z",
+		"%FT%TZ",
+		"%F",
+		"%D",
+		NULL,
+	};
+
+	while (isspace(*s))
+		++s;
 
 	struct tm tm;
-	if (!strptime(s, RFC_822, (tm = ZERO_TM, &tm)) &&
-	    !strptime(s, "%a, %d %b %Y %T %Z", (tm = ZERO_TM, &tm)) &&
-	    !strptime(s, "%FT%TZ", (tm = ZERO_TM, &tm)) &&
-	    !strptime(s, "%F", (tm = ZERO_TM, &tm)) &&
-	    !strptime(s, "%D", (tm = ZERO_TM, &tm)))
-		error("invalid date: '%s'", s);
+	for (char const *const *fmt = FORMATS; *fmt; ++fmt) {
+		memset(&tm, 0, sizeof tm);
+		char *end = strptime(s, *fmt, &tm);
+		if (!end)
+			continue;
 
-	return mktime(&tm) - timezone;
+		while (isspace(*end))
+			++end;
+
+		if (*end)
+			msg(LOG_WARNING, "Unprocessed characters in date '%s': '%s'",
+					s, end);
+
+		time_t offset = tm.tm_gmtoff + local_timezone;
+		return mktime(&tm) - offset;
+	}
+
+	msg(LOG_ERR, "Invalid date: '%s'", s);
+	return 0;
 }
 
 static void
@@ -209,17 +261,17 @@ hash_str(HASH hash, char const *s)
 }
 
 static void
-hash_post(HASH hash, struct post const *post, char const *source)
+hash_entry(HASH hash, struct entry const *e, char const *source)
 {
 	SHA1_CTX ctx;
 	sha1_init(&ctx);
 
-	sha1_update_strnull(&ctx, (char const *)post->id);
-	sha1_update_strnull(&ctx, (char const *)post->link);
-	sha1_update_strnull(&ctx, (char const *)post->lang);
-	sha1_update_strnull(&ctx, (char const *)post->subject);
-	sha1_update_strnull(&ctx, (char const *)post->date);
-	sha1_update_strnull(&ctx, (char const *)post->text.content);
+	sha1_update_strnull(&ctx, (char const *)e->id);
+	sha1_update_strnull(&ctx, (char const *)e->link);
+	sha1_update_strnull(&ctx, (char const *)e->lang);
+	sha1_update_strnull(&ctx, (char const *)e->subject);
+	sha1_update_strnull(&ctx, (char const *)e->date);
+	sha1_update_strnull(&ctx, (char const *)e->text.content);
 	sha1_update_strnull(&ctx, source);
 
 	BYTE bytes[16];
@@ -402,7 +454,7 @@ get_domain(char **url)
 }
 
 static void
-mail_write_from_hdr(struct mail *mail, struct post const *group)
+mail_write_from_hdr(struct mail *mail, struct entry const *feed)
 {
 	char *phrase = NULL;
 	char *addr_spec = NULL;
@@ -410,8 +462,8 @@ mail_write_from_hdr(struct mail *mail, struct post const *group)
 	if (*opt_from)
 		phrase = opt_from;
 	else
-		phrase = (char *)group->subject;
-	addr_spec = (char *)group->link;
+		phrase = (char *)feed->subject;
+	addr_spec = (char *)feed->link;
 
 	char *slash = get_domain(&addr_spec);
 	if (phrase)
@@ -423,12 +475,12 @@ mail_write_from_hdr(struct mail *mail, struct post const *group)
 }
 
 static void
-mail_write_message_id_hdr(struct mail *mail, char const *name, struct post const *group)
+mail_write_message_id_hdr(struct mail *mail, char const *name, struct entry const *feed)
 {
 	HASH id;
-	hash_post(id, group, NULL);
+	hash_entry(id, feed, NULL);
 
-	char *s = (char *)group->link;
+	char *s = (char *)feed->link;
 	char *slash = get_domain(&s);
 	mail_write_hdr(mail, "%s: <%s@%s>", name, id, s);
 	if (slash)
@@ -436,7 +488,7 @@ mail_write_message_id_hdr(struct mail *mail, char const *name, struct post const
 }
 
 static void
-generate_root_mail(struct post const *group)
+generate_root_mail(struct entry const *feed)
 {
 	if (!opt_reply_to)
 		return;
@@ -444,22 +496,48 @@ generate_root_mail(struct post const *group)
 	struct mail mail;
 	mail_create(&mail);
 
-	mail_write_message_id_hdr(&mail, "Message-ID", group);
-	mail_write_from_hdr(&mail, group);
-	mail_write_hdr(&mail, "Subject: %t", group->subject);
-	mail_write_hdr(&mail, "Link: %t", group->link);
-	if (group->text.content) {
-		mail_write_hdr(&mail, "Content-Type: %s", group->text.mime_type);
-		fprintf(mail.stream, "\n%s", (char const *)group->text.content);
+	mail_write_message_id_hdr(&mail, "Message-ID", feed);
+	mail_write_from_hdr(&mail, feed);
+	mail_write_hdr(&mail, "Subject: %t", feed->subject);
+	mail_write_hdr(&mail, "Link: %t", feed->link);
+	if (feed->text.content) {
+		mail_write_hdr(&mail, "Content-Type: %s", feed->text.mime_type);
+		fprintf(mail.stream, "\n%s", (char const *)feed->text.content);
 	}
 
 	HASH id;
-	hash_post(id, group, NULL);
+	hash_entry(id, feed, NULL);
 	mail_commit(&mail, id, 0);
 }
 
 static size_t
-xml_write_cb(char *buf, size_t size, size_t nmemb, void *userdata)
+header_cb(char *buf, size_t size, size_t nmemb, void *userdata)
+{
+	(void)userdata;
+
+	size *= nmemb;
+
+	if (curl_strnequal(buf, "etag:", 5)) {
+		size_t n = size - 5 - 2 /* CRLF */;
+		if (n <= sizeof new_state.etag - 1 /* NUL */) {
+			memcpy(new_state.etag, buf + 5, n);
+			new_state.etag[n] = '\0';
+		} else {
+			msg(LOG_WARNING, "Response ETag is ignored because too long");
+		}
+	}
+
+	if (curl_strnequal(buf, "expires:", 8))
+		new_state.expiration = parse_date(buf + 8);
+
+	if (curl_strnequal(buf, "last-modified:", 14))
+		new_state.last_modified = parse_date(buf + 14);
+
+	return size;
+}
+
+static size_t
+write_cb(char *buf, size_t size, size_t nmemb, void *userdata)
 {
 	xmlParserCtxtPtr *xml = userdata;
 
@@ -469,36 +547,40 @@ xml_write_cb(char *buf, size_t size, size_t nmemb, void *userdata)
 		*xml = xmlCreatePushParserCtxt(NULL, NULL, buf, size, NULL);
 		if (!*xml)
 			/* XXX: Should ensure that we have enough bytes to kickstart. */
-			error("invalid XML");
+			msg(LOG_ERR, "Invalid XML");
 	} else {
 		if (xmlParseChunk(*xml, buf, size, 0 /* Terminate? */))
-			error("invalid XML");
+			msg(LOG_ERR, "Invalid XML");
 	}
 
 	return size;
 }
 
 void
-post_push(struct post const *item, struct post const *group)
+entry_process(struct entry const *entry, struct entry const *feed)
 {
-	time_t date = 0;
-	if (item->date) {
-		date = parse_date((char *)item->date);
+	msg(LOG_INFO, "Received entry [%s] '%s'", entry->date, entry->subject);
 
-		if (date <= feed_old_latest)
+	time_t date = 0;
+	if (entry->date) {
+		date = parse_date((char *)entry->date);
+
+		if (date <= old_state.last_modified)
 			return;
 
-		if (feed_new_latest < date)
-			feed_new_latest = date;
+		if (new_state.last_modified < date)
+			new_state.last_modified = date;
 	}
 
-	generate_root_mail(group);
+	msg(LOG_INFO, "New");
+
+	generate_root_mail(feed);
 
 	struct mail mail;
 	mail_create(&mail);
 
 	HASH id;
-	hash_post(id, item, (char const *)group->link);
+	hash_entry(id, entry, (char const *)feed->link);
 
 	char datetime[50];
 	time_t now = time(NULL);
@@ -506,8 +588,8 @@ post_push(struct post const *item, struct post const *group)
 	mail_write_hdr(&mail, "Received: mrss; %s", datetime);
 
 	mail_write_hdr(&mail, "Message-ID: <%s>", id);
-	mail_write_message_id_hdr(&mail, "In-Reply-To", group);
-	mail_write_hdr(&mail, "Content-Language: %t", item->lang);
+	mail_write_message_id_hdr(&mail, "In-Reply-To", feed);
+	mail_write_hdr(&mail, "Content-Language: %t", entry->lang);
 	mail_write_hdr(&mail, "Content-Transfer-Encoding: binary");
 
 	if (date) {
@@ -515,15 +597,15 @@ post_push(struct post const *item, struct post const *group)
 		mail_write_hdr(&mail, "Date: %s", datetime);
 	}
 
-	mail_write_from_hdr(&mail, group);
-	mail_write_hdr(&mail, "Subject: %t", item->subject);
+	mail_write_from_hdr(&mail, feed);
+	mail_write_hdr(&mail, "Subject: %t", entry->subject);
 	/* TODO: Support multiple categories. */
-	mail_write_hdr(&mail, "X-Category: %t", item->category);
-	mail_write_hdr(&mail, "Author: %t", item->author);
-	mail_write_hdr(&mail, "Link: %t", item->link);
-	if (item->text.content) {
-		mail_write_hdr(&mail, "Content-Type: %s", item->text.mime_type);
-		fprintf(mail.stream, "\n%s", (char const *)item->text.content);
+	mail_write_hdr(&mail, "X-Category: %t", entry->category);
+	mail_write_hdr(&mail, "Author: %t", entry->author);
+	mail_write_hdr(&mail, "Link: %t", entry->link);
+	if (entry->text.content) {
+		mail_write_hdr(&mail, "Content-Type: %s", entry->text.mime_type);
+		fprintf(mail.stream, "\n%s", (char const *)entry->text.content);
 	}
 
 	mail_commit(&mail, id, 1);
@@ -535,20 +617,34 @@ check_curl(CURLcode rc)
 	if (rc == CURLE_OK)
 		return;
 
-	error("cURL error: %s", *curl_error_buf
+	msg(LOG_ERR, "cURL error: %s", *curl_error_buf
 			? curl_error_buf
 			: curl_easy_strerror(rc));
 }
 
 static void
-open_url(char const *url)
+poll_url(char const *url)
 {
 	if (!curl)
 		curl = curl_easy_init();
 	if (!curl)
-		error("cURL error: cannot initialize");
+		msg(LOG_ERR, "cURL error: cannot initialize");
 
 	xmlParserCtxtPtr xml = NULL;
+
+	struct curl_slist *headers = NULL;
+	char buf[50 + 1024];
+
+	if (*old_state.etag) {
+		sprintf(buf, "If-None-Match:%s", old_state.etag);
+		headers = curl_slist_append(headers, buf);
+	} else if (old_state.last_modified) {
+		char datetime[50];
+		strftime(datetime, sizeof datetime, RFC_2616,
+				gmtime(&old_state.last_modified));
+		sprintf(buf, "If-Modified-Since: %s", datetime);
+		headers = curl_slist_append(headers, buf);
+	}
 
 	curl_easy_reset(curl);
 	curl_easy_setopt(curl, CURLOPT_ERRORBUFFER, curl_error_buf);
@@ -560,13 +656,25 @@ open_url(char const *url)
 	check_curl(curl_easy_setopt(curl, CURLOPT_PROXY, opt_proxy));
 	check_curl(curl_easy_setopt(curl, CURLOPT_FAILONERROR, 1L));
 	check_curl(curl_easy_setopt(curl, CURLOPT_SOCKS5_AUTH, CURLAUTH_BASIC));
-	check_curl(curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, xml_write_cb));
+	check_curl(curl_easy_setopt(curl, CURLOPT_HEADERFUNCTION, header_cb));
+	check_curl(curl_easy_setopt(curl, CURLOPT_HEADERDATA, &xml));
+	check_curl(curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_cb));
 	check_curl(curl_easy_setopt(curl, CURLOPT_WRITEDATA, &xml));
+	check_curl(curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers));
 	check_curl(curl_easy_setopt(curl, CURLOPT_URL, url));
+
 	check_curl(curl_easy_perform(curl));
 
+	curl_slist_free_all(headers);
+
+	long status_code;
+	check_curl(curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &status_code));
+
+	if (200 != status_code)
+		return;
+
 	if (!xml || xmlParseChunk(xml, NULL, 0, 1 /* Terminate? */))
-		error("invalid XML");
+		msg(LOG_ERR, "Invalid XML");
 
 	xmlDocPtr doc = xml->myDoc;
 	xmlNodePtr root = xmlDocGetRootElement(doc);
@@ -574,57 +682,78 @@ open_url(char const *url)
 	if (!atom_parse(root) &&
 	    !rss_parse(root) &&
 	    !rdf_parse(root))
-		error("unexpected root node");
+		msg(LOG_ERR, "Unexpected root node %s", root->name);
 
 	xmlFreeParserCtxt(xml);
 }
 
 static void
-crawl_url(char const *url)
+crawl_url_(char const *url)
 {
-	if (opt_verbose)
-		fprintf(stderr, "mrss: %s...\n", url);
-
-	char buf[50];
 	char statename[PATH_MAX];
 
 	HASH id;
 	hash_str(id, url);
 	xsnprintf(statename, sizeof statename, ".mrssstate.%s", id);
 
-	FILE *state = xfopen(statename, "a+");
+	msg(LOG_DEBUG, "Processing %s %s", id, url);
 
-	feed_old_latest = 0;
-	if (fgets(buf, sizeof buf, state))
-		feed_old_latest = parse_date(buf);
-	feed_new_latest = feed_old_latest;
+	char buf[BUFSIZ];
+	FILE *fstate = xfopen(statename, "a+");
 
-	time_t ignore_until = 0;
-	if (fgets(buf, sizeof buf, state))
-		ignore_until = parse_date(buf);
+	old_state.last_modified = 0;
+	if (xfgets(buf, sizeof buf, fstate))
+		old_state.last_modified = parse_date(buf);
+	new_state.last_modified = old_state.last_modified;
 
-	fclose(state);
+	old_state.expiration = 0;
+	if (xfgets(buf, sizeof buf, fstate))
+		old_state.expiration = parse_date(buf);
+	new_state.expiration = old_state.expiration;
+
+	*old_state.etag = '\0';
+	xfgets(old_state.etag, sizeof old_state.etag, fstate);
+	strcpy(new_state.etag, old_state.etag);
+
+	fclose(fstate);
 
 	time_t now = time(NULL);
-	if (now <= ignore_until)
+	if (now <= old_state.expiration) {
+		msg(LOG_INFO, "Cached for %lu minutes",
+				(unsigned long)(old_state.expiration - now) / 60);
 		return;
+	}
 
 	xmkdir("tmp");
 	xmkdir("new");
 	xmkdir("cur");
 
-	open_url(url);
+	poll_url(url);
+
+	if (new_state.expiration < now + opt_expiration)
+		new_state.expiration = now + opt_expiration;
+
+	if (new_state.last_modified == old_state.last_modified &&
+	    new_state.expiration == old_state.expiration &&
+	    !strcmp(new_state.etag, old_state.etag))
+	{
+		msg(LOG_INFO, "State not changed");
+		return;
+	}
 
 	char tmpname[PATH_MAX];
 	strcpy(tmpname, "tmp/mrssstate.XXXXXX");
 	FILE *f = xftmpopen(tmpname);
 
-	strftime(buf, sizeof buf, RFC_822, gmtime(&feed_new_latest));
+	strftime(buf, sizeof buf, RFC_2616, gmtime(&new_state.last_modified));
 	fputs(buf, f);
 	fputc('\n', f);
 
-	strftime(buf, sizeof buf, RFC_822, gmtime(&ignore_until));
+	strftime(buf, sizeof buf, RFC_2616, gmtime(&new_state.expiration));
 	fputs(buf, f);
+	fputc('\n', f);
+
+	fputs(new_state.etag, f);
 	fputc('\n', f);
 
 	fputs(url, f);
@@ -632,6 +761,19 @@ crawl_url(char const *url)
 
 	xfclose(f, tmpname);
 	xrename(tmpname, statename);
+
+	msg(LOG_INFO, "State updated");
+}
+
+static void
+crawl_url(char const *url)
+{
+	have_errctx = 1;
+	if (!setjmp(errctx))
+		crawl_url_(url);
+	else
+		msg(LOG_NOTICE, "Errored URL: %s", url);
+	have_errctx = 0;
 }
 
 static void
@@ -639,7 +781,7 @@ crawl_file(char const *pathname)
 {
 	FILE *f = xfopen(pathname, "r");
 	char line[BUFSIZ];
-	while (xfgets(line, sizeof line, f))
+	while (xfgets_config(line, sizeof line, f))
 		crawl_url(line);
 	fclose(f);
 }
@@ -652,7 +794,7 @@ do_cmd_file(char const *pathname)
 {
 	FILE *f = xfopen(pathname, "r");
 	char line[BUFSIZ];
-	while (xfgets(line, sizeof line, f)) {
+	while (xfgets_config(line, sizeof line, f)) {
 		char *c = line;
 
 		char const *cmd = c;
@@ -675,7 +817,7 @@ set_str_opt(char *buf, size_t buf_size, char const *arg)
 {
 	size_t n = strlen(arg);
 	if (buf_size <= n)
-		error("argument '%s': too long", arg);
+		msg(LOG_ERR, "Argument '%s': too long", arg);
 	memcpy(buf, arg, n);
 	buf[n] = '\0';
 }
@@ -685,9 +827,9 @@ set_shellstr_opt(char *buf, size_t buf_size, char const *arg)
 {
 	wordexp_t we;
 	if (wordexp(arg, &we, WRDE_NOCMD | WRDE_UNDEF))
-		error("invalid path: '%s'", arg);
+		msg(LOG_ERR, "Invalid path: '%s'", arg);
 	if (1 < we.we_wordc)
-		error("string '%s' expand into %d words, only a single one is expected",
+		msg(LOG_ERR, "String '%s' expand into %d words, only a single one is expected",
 				arg, we.we_wordc);
 	set_str_opt(buf, buf_size, !we.we_wordc ? "" : we.we_wordv[0]);
 	wordfree(&we);
@@ -710,7 +852,42 @@ set_choice_opt(int *b, char const *arg)
 	    !strcmp(arg, "0"))
 		*b = 0;
 	else
-		error("invalid boolean value: '%s'", arg);
+		msg(LOG_ERR, "Invalid boolean value: '%s'", arg);
+}
+
+static void
+set_int_opt(int *value, char const *arg)
+{
+	char *end;
+	errno = 0;
+	*value = strtol(arg, &end, 10);
+	if (errno)
+		msg(LOG_ERR, "Argument '%s': invalid number", arg);
+
+	int unit;
+	switch (*end) {
+	case 'd':
+		unit = 24 * 60 * 60;
+		break;
+
+	case 'h':
+		unit = 60 * 60;
+		break;
+
+	case 'm':
+		unit = 60;
+		break;
+
+	case 's':
+	case '\0':
+		unit = 1;
+		break;
+
+	default:
+		msg(LOG_ERR, "Argument '%s': unknown unit '%c'", arg, *end);
+	}
+
+	*value *= unit;
 }
 
 static void
@@ -722,7 +899,7 @@ do_cmd(char const *cmd, char const *arg)
 		char path[PATH_MAX];
 		set_shellstr_opt(path, sizeof path, arg);
 		if (chdir(path) < 0)
-			error("failed to change current directory to '%s': %s",
+			msg(LOG_ERR, "Failed to change current directory to '%s': %s",
 					path, strerror(errno));
 	} else if (!strcmp(cmd, "reply_to"))
 		set_choice_opt(&opt_reply_to, arg);
@@ -730,28 +907,33 @@ do_cmd(char const *cmd, char const *arg)
 		set_str_opt(opt_from, sizeof opt_from, arg);
 	else if (!strcmp(cmd, "verbose")) {
 		set_choice_opt(&opt_verbose, arg);
-		if (opt_verbose)
-			puts(VERSION);
+		msg(LOG_NOTICE, "Version: " VERSION);
 	} else if (!strcmp(cmd, "config") ||
 	         !strcmp(cmd, "include"))
 		do_cmd_file(arg);
+	else if (!strcmp(cmd, "expire"))
+		set_int_opt(&opt_expiration, arg);
 	else if (!strcmp(cmd, "url"))
 		crawl_url(arg);
 	else if (!strcmp(cmd, "urls"))
 		crawl_file(arg);
 	else
-		error("unknown command: '%s'", cmd);
+		msg(LOG_ERR, "Unknown command: '%s'", cmd);
 }
 
 int
 main(int argc, char *argv[])
 {
-	LIBXML_TEST_VERSION
+	LIBXML_TEST_VERSION;
+
+	/* Parsing %Z modifies timezone so it has to be saved. */
+	tzset();
+	local_timezone = timezone;
 
 	for (int argi = 1; argi < argc;) {
 		if ('-' != argv[argi][0] ||
 		    '-' != argv[argi][1])
-			error("unknown argument: '%s'", argv[argi]);
+			msg(LOG_ERR, "Unknown argument: '%s'", argv[argi]);
 
 		char *cmd = argv[argi] + 2;
 		char *arg = strchr(cmd, '=');
@@ -762,7 +944,7 @@ main(int argc, char *argv[])
 			arg = argv[argi + 1];
 			argi += 2;
 		} else {
-			error("missing argument for '%s'", cmd);
+			msg(LOG_ERR, "Missing argument for '%s'", cmd);
 		}
 
 		do_cmd(cmd, arg);

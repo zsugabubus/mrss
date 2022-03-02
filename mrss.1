@@ -1,4 +1,4 @@
-.TH MRSS "1" "October 2021"
+.TH MRSS "1" "March 2022"
 .SH NAME
 mrss \- transform web feeds to Maildir mails
 .
@@ -45,11 +45,16 @@ and recognizes environment variables.
 .
 .TP
 .BI url\  STRING
-Crawl URL.
+Receive feed specified by URL.
+.
+.IP
+To decrease load on remote servers attempt to perform conditional requests.
 .
 .TP
 .BI urls\  STRING
-Read file lines and crawl one URL per line.
+Read file lines and execute
+.B url
+command for each line.
 .IP
 Empty lines and lines starting with
 .B #
@@ -64,6 +69,17 @@ Set "From:" header.
 Create a root mail for the channel in
 .BR path /cur
 and reply to it. Default: yes.
+.
+.TP
+.BI expire\  INTEGER
+Specify minimum time of expiration in seconds. Non-expired feeds are considered
+up-to-date and no connection is made to the server. Number may be optionally
+suffixed with
+.BR d ay,\  h our,\  m inute\ or\  s econd
+units.
+.
+.IP
+Respect "Expires:" header sent by the server (if it is more late).
 .
 .TP
 .BI proxy\  STRING

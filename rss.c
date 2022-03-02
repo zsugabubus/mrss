@@ -6,9 +6,9 @@
 static xmlChar const NS_CONTENT[] = "http://purl.org/rss/1.0/modules/content/";
 
 static void
-rss_parse_item(xmlNodePtr item, struct post const *group)
+rss_parse_item(xmlNodePtr node, struct entry const *feed)
 {
-	xmlNodePtr guid_node = xmlGetNsChild(item, "guid", NULL);
+	xmlNodePtr guid_node = xmlGetNsChild(node, "guid", NULL);
 	xmlChar *guid = guid_node ? xmlNodeGetContent(guid_node) : NULL;
 	xmlChar *link = NULL;
 	if (guid_node) {
@@ -18,65 +18,65 @@ rss_parse_item(xmlNodePtr item, struct post const *group)
 		xmlFree(is_permalink);
 	}
 	if (!link)
-		link = xmlGetNsChildContent(item, "link", NULL);
+		link = xmlGetNsChildContent(node, "link", NULL);
 	if (!link && guid && !xmlStrncmp(guid, XML_CHAR "http", 4))
 		link = xmlStrdup(guid);
 
 	struct media text;
 	text = (struct media){
 		.mime_type = MIME_TEXT_HTML,
-		.content = xmlGetNsChildContent(item, "description", NULL),
+		.content = xmlGetNsChildContent(node, "description", NULL),
 	};
 
 	if (!text.content)
 		text = (struct media){
 			.mime_type = MIME_TEXT_HTML,
-			.content = xmlGetNsChildContent(item, "encoded", NS_CONTENT),
+			.content = xmlGetNsChildContent(node, "encoded", NS_CONTENT),
 		};
 
-	struct post post = {
-		.author = xmlGetNsChildContent(item, "author", NULL),
-		.date = xmlGetNsChildContent(item, "pubDate", NULL),
+	struct entry entry = {
+		.author = xmlGetNsChildContent(node, "author", NULL),
+		.date = xmlGetNsChildContent(node, "pubDate", NULL),
 		.id = guid,
-		.lang = xmlStrdup(group->lang),
+		.lang = xmlStrdup(feed->lang),
 		.link = link,
-		.subject = xmlGetNsChildContent(item, "title", NULL),
+		.subject = xmlGetNsChildContent(node, "title", NULL),
 		.text = text,
 	};
 
-	post_push(&post, group);
+	entry_process(&entry, feed);
 
-	post_destroy(&post);
+	entry_destroy(&entry);
 }
 
 static void
-rss_parse_channel(xmlNodePtr channel)
+rss_parse_channel(xmlNodePtr node)
 {
-	struct post group = {
-		.category = xmlGetNsChildContent(channel, "category", NULL),
-		.lang = xmlGetNsChildContent(channel, "language", NULL),
-		.link = xmlGetNsChildContent(channel, "link", NULL),
-		.subject = xmlGetNsChildContent(channel, "title", NULL),
+	struct entry feed = {
+		.category = xmlGetNsChildContent(node, "category", NULL),
+		.lang = xmlGetNsChildContent(node, "language", NULL),
+		.link = xmlGetNsChildContent(node, "link", NULL),
+		.subject = xmlGetNsChildContent(node, "title", NULL),
 		.text = (struct media){
 			.mime_type = MIME_TEXT_HTML,
-			.content = xmlGetNsChildContent(channel, "description", NULL),
+			.content = xmlGetNsChildContent(node, "description", NULL),
 		},
 	};
 
-	for eachXmlElement(child, channel)
+	for eachXmlElement(child, node)
 		if (xmlTestNode(child, "item", NULL))
-			rss_parse_item(child, &group);
+			rss_parse_item(child, &feed);
 
-	post_destroy(&group);
+	entry_destroy(&feed);
 }
 
 int
-rss_parse(xmlNodePtr rss)
+rss_parse(xmlNodePtr node)
 {
-	if (!xmlTestNode(rss, "rss", NULL))
+	if (!xmlTestNode(node, "rss", NULL))
 		return 0;
 
-	for eachXmlElement(child, rss)
+	for eachXmlElement(child, node)
 		if (xmlTestNode(child, "channel", NULL))
 			rss_parse_channel(child);
 
