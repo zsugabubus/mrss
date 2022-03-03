@@ -537,7 +537,7 @@ header_cb(char *buf, size_t size, size_t nmemb, void *userdata)
 }
 
 static size_t
-write_cb(char *buf, size_t size, size_t nmemb, void *userdata)
+write_xml(char *buf, size_t size, size_t nmemb, void *userdata)
 {
 	xmlParserCtxtPtr *xml = userdata;
 
@@ -622,15 +622,13 @@ check_curl(CURLcode rc)
 			: curl_easy_strerror(rc));
 }
 
-static void
-open_feed(char const *url)
+static int
+open_feed_curl(xmlParserCtxtPtr *xml, char const *url)
 {
 	if (!curl)
 		curl = curl_easy_init();
 	if (!curl)
 		msg(LOG_ERR, "cURL error: cannot initialize");
-
-	xmlParserCtxtPtr xml = NULL;
 
 	struct curl_slist *headers = NULL;
 	char buf[50 + 1024];
@@ -657,9 +655,9 @@ open_feed(char const *url)
 	check_curl(curl_easy_setopt(curl, CURLOPT_FAILONERROR, 1L));
 	check_curl(curl_easy_setopt(curl, CURLOPT_SOCKS5_AUTH, CURLAUTH_BASIC));
 	check_curl(curl_easy_setopt(curl, CURLOPT_HEADERFUNCTION, header_cb));
-	check_curl(curl_easy_setopt(curl, CURLOPT_HEADERDATA, &xml));
-	check_curl(curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_cb));
-	check_curl(curl_easy_setopt(curl, CURLOPT_WRITEDATA, &xml));
+	check_curl(curl_easy_setopt(curl, CURLOPT_HEADERDATA, xml));
+	check_curl(curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_xml));
+	check_curl(curl_easy_setopt(curl, CURLOPT_WRITEDATA, xml));
 	check_curl(curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers));
 	check_curl(curl_easy_setopt(curl, CURLOPT_URL, url));
 
@@ -670,8 +668,33 @@ open_feed(char const *url)
 	long status_code;
 	check_curl(curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &status_code));
 
-	if (200 != status_code)
-		return;
+	return 200 == status_code;
+}
+
+static int
+open_feed_program(xmlParserCtxtPtr *xml, char const *command)
+{
+	char buf[BUFSIZ];
+	FILE *stream = popen(command, "r");
+	if (!stream)
+		msg(LOG_ERR, "Failed to execute command");
+	for (size_t n; (n = fread(buf, 1, sizeof buf, stream));)
+		write_xml(buf, 1, n, xml);
+	return EXIT_SUCCESS == pclose(stream);
+}
+
+static void
+open_feed(char const *url)
+{
+	xmlParserCtxtPtr xml = NULL;
+
+	if (!strncmp(url, "system:", 7)) {
+		if (!open_feed_program(&xml, url + 7))
+			return;
+	} else {
+		if (!open_feed_curl(&xml, url))
+			return;
+	}
 
 	if (!xml || xmlParseChunk(xml, NULL, 0, 1 /* Terminate? */))
 		msg(LOG_ERR, "Invalid XML");

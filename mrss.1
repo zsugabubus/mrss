@@ -73,7 +73,12 @@ directory and reply to it. Default: yes.
 .
 .TP
 .BI url\  STRING
-Receive feed specified by URL.
+Open feed specified by the URL. Handle
+.BI system: COMMAND
+URLs specially, namely: If
+.I COMMAND
+terminates with success, treat it as HTTP 200 and read its standard output;
+otherwise as HTTP 304 (Not Modified).
 .
 .IP
 To decrease load on remote servers attempt to perform conditional requests.
