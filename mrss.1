@@ -16,21 +16,6 @@ creates Maildir mail messages from RSS or Atom feeds.
 Commands are executed sequentally.
 .
 .TP
-.BI config\  STRING
-Read file lines and execute whitespace separated
-.IR COMMAND - ARG
-pairs.
-.IP
-Empty lines and lines starting with
-.B #
-are ignored.
-.
-.TP
-.B include
-Synonym of
-.BR config .
-.
-.TP
 .BI cd\  SHELL-STRING
 Change current working directory.
 .
@@ -42,6 +27,48 @@ Mails are created in
 Substitutes
 .B ~
 and recognizes environment variables.
+.
+.TP
+.BI config\  STRING
+Read file lines and execute whitespace separated
+.IR COMMAND - ARG
+pairs.
+.IP
+Empty lines and lines starting with
+.B #
+are ignored.
+.
+.TP
+.BI expire\  INTEGER
+Specify minimum time of expiration in seconds. Non-expired feeds are considered
+up-to-date and no connection is made to the server. Number may be optionally
+suffixed with
+.BR d ay,\  h our,\  m inute\ or\  s econd
+units.
+.
+.IP
+Respect "Expires:" header sent by the server (if it is more late).
+.
+.TP
+.BI from\  STRING
+Set "From:" header.
+.
+.TP
+.B include
+Synonym of
+.BR config .
+.
+.TP
+.BI proxy\  STRING
+Use proxy. Default: (empty) (no proxy).
+.IP
+Example: socks5://127.0.0.1:9050.
+.
+.TP
+.BI reply_to\  CHOICE
+Create a root mail for the channel in
+.B cur
+and reply to it. Default: yes.
 .
 .TP
 .BI url\  STRING
@@ -61,31 +88,8 @@ Empty lines and lines starting with
 are ignored.
 .
 .TP
-.BI from\  STRING
-Set "From:" header.
-.
-.TP
-.BI reply_to\  CHOICE
-Create a root mail for the channel in
-.B cur
-and reply to it. Default: yes.
-.
-.TP
-.BI expire\  INTEGER
-Specify minimum time of expiration in seconds. Non-expired feeds are considered
-up-to-date and no connection is made to the server. Number may be optionally
-suffixed with
-.BR d ay,\  h our,\  m inute\ or\  s econd
-units.
-.
-.IP
-Respect "Expires:" header sent by the server (if it is more late).
-.
-.TP
-.BI proxy\  STRING
-Use proxy. Default: (empty) (no proxy).
-.IP
-Example: socks5://127.0.0.1:9050.
+.BI verbose\  CHOICE
+Specify whether to show debug messages.
 .
 .SH "SEE ALSO"
 .B mutt(1)

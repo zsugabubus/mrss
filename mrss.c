@@ -623,7 +623,7 @@ check_curl(CURLcode rc)
 }
 
 static void
-poll_url(char const *url)
+open_feed(char const *url)
 {
 	if (!curl)
 		curl = curl_easy_init();
@@ -688,7 +688,7 @@ poll_url(char const *url)
 }
 
 static void
-crawl_url_(char const *url)
+process_feed(char const *url)
 {
 	char statename[PATH_MAX];
 
@@ -728,7 +728,7 @@ crawl_url_(char const *url)
 	xmkdir("new");
 	xmkdir("cur");
 
-	poll_url(url);
+	open_feed(url);
 
 	if (new_state.expiration < now + opt_expiration)
 		new_state.expiration = now + opt_expiration;
@@ -766,31 +766,31 @@ crawl_url_(char const *url)
 }
 
 static void
-crawl_url(char const *url)
+exec_cmd_url(char const *url)
 {
 	have_errctx = 1;
 	if (!setjmp(errctx))
-		crawl_url_(url);
+		process_feed(url);
 	else
 		msg(LOG_NOTICE, "Errored URL: %s", url);
 	have_errctx = 0;
 }
 
 static void
-crawl_file(char const *pathname)
+exec_cmd_urls(char const *pathname)
 {
 	FILE *f = xfopen(pathname, "r");
 	char line[BUFSIZ];
 	while (xfgets_config(line, sizeof line, f))
-		crawl_url(line);
+		exec_cmd_url(line);
 	fclose(f);
 }
 
 static void
-do_cmd(char const *cmd, char const *arg);
+exec_cmd(char const *cmd, char const *arg);
 
 static void
-do_cmd_file(char const *pathname)
+exec_cmd_file(char const *pathname)
 {
 	FILE *f = xfopen(pathname, "r");
 	char line[BUFSIZ];
@@ -807,7 +807,7 @@ do_cmd_file(char const *pathname)
 			while (isspace(*++arg));
 		}
 
-		do_cmd(cmd, arg);
+		exec_cmd(cmd, arg);
 	}
 	fclose(f);
 }
@@ -891,33 +891,32 @@ set_int_opt(int *value, char const *arg)
 }
 
 static void
-do_cmd(char const *cmd, char const *arg)
+exec_cmd(char const *cmd, char const *arg)
 {
-	if (!strcmp(cmd, "proxy"))
-		set_str_opt(opt_proxy, sizeof opt_proxy, arg);
-	else if (!strcmp(cmd, "cd")) {
+	if (!strcmp(cmd, "cd")) {
 		char path[PATH_MAX];
 		set_shellstr_opt(path, sizeof path, arg);
 		if (chdir(path) < 0)
 			msg(LOG_ERR, "Failed to change current directory to '%s': %s",
 					path, strerror(errno));
-	} else if (!strcmp(cmd, "reply_to"))
-		set_choice_opt(&opt_reply_to, arg);
+	} else if (!strcmp(cmd, "config") || !strcmp(cmd, "include"))
+		exec_cmd_file(arg);
+	else if (!strcmp(cmd, "expire"))
+		set_int_opt(&opt_expiration, arg);
 	else if (!strcmp(cmd, "from"))
 		set_str_opt(opt_from, sizeof opt_from, arg);
+	else if (!strcmp(cmd, "proxy"))
+		set_str_opt(opt_proxy, sizeof opt_proxy, arg);
+	else if (!strcmp(cmd, "reply_to"))
+		set_choice_opt(&opt_reply_to, arg);
+	else if (!strcmp(cmd, "url"))
+		exec_cmd_url(arg);
+	else if (!strcmp(cmd, "urls"))
+		exec_cmd_urls(arg);
 	else if (!strcmp(cmd, "verbose")) {
 		set_choice_opt(&opt_verbose, arg);
 		msg(LOG_NOTICE, "Version: " VERSION);
-	} else if (!strcmp(cmd, "config") ||
-	         !strcmp(cmd, "include"))
-		do_cmd_file(arg);
-	else if (!strcmp(cmd, "expire"))
-		set_int_opt(&opt_expiration, arg);
-	else if (!strcmp(cmd, "url"))
-		crawl_url(arg);
-	else if (!strcmp(cmd, "urls"))
-		crawl_file(arg);
-	else
+	} else
 		msg(LOG_ERR, "Unknown command: '%s'", cmd);
 }
 
@@ -947,7 +946,7 @@ main(int argc, char *argv[])
 			msg(LOG_ERR, "Missing argument for '%s'", cmd);
 		}
 
-		do_cmd(cmd, arg);
+		exec_cmd(cmd, arg);
 	}
 
 	return EXIT_SUCCESS;
