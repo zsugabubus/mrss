@@ -895,7 +895,7 @@ do_cmd(char const *cmd, char const *arg)
 {
 	if (!strcmp(cmd, "proxy"))
 		set_str_opt(opt_proxy, sizeof opt_proxy, arg);
-	else if (!strcmp(cmd, "path")) {
+	else if (!strcmp(cmd, "cd")) {
 		char path[PATH_MAX];
 		set_shellstr_opt(path, sizeof path, arg);
 		if (chdir(path) < 0)
