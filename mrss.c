@@ -797,6 +797,8 @@ exec_cmd_url(char const *url)
 	else
 		msg(LOG_NOTICE, "Errored URL: %s", url);
 	have_errctx = 0;
+
+	*opt_from = '\0';
 }
 
 static void
