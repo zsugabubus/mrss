@@ -322,7 +322,7 @@ rfc822_classify(unsigned char const *s)
 static int
 rfc2047_is_special(unsigned char c)
 {
-	return ' ' == c || '?' == c || '~' < c;
+	return c <= ' ' || '?' == c || '~' < c;
 }
 
 /* Perform "Q" encoding.
