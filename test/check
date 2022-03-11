@@ -4,11 +4,20 @@ PATH=$BUILD_ROOT:$PATH
 maildir=$WORK_ROOT/Maildir
 
 do_mrss() {
-	mrss --verbose on "$@" $(
-		for f in "$TEST_ROOT/"*.xml; do
-			printf -- '--url file://%s ' "$f"
-		done
-	)
+	for f in "$TEST_ROOT/"*"-$1.xml"; do
+		case $f in
+		# Just "randomly" test system: protocol.
+		*atom*) proto='system:cat ' ;;
+		*) proto='file://' ;;
+		esac
+		# Rename "rss-X.xml"s so they update "rss".
+		fake=$f
+		fake=${fake##*/}
+		fake=${fake%%-*}
+		fake=$WORK_ROOT/$fake
+		ln -sf "$f" "$fake"
+		mrss --verbose on --expire "$2" "--url=$proto$fake"
+	done
 }
 
 do_check() {
@@ -20,7 +29,7 @@ do_check() {
 		cat -- "$f"
 	done >"$WORK_ROOT/got-$1"
 
-	diff -ud "$TEST_ROOT/expected-$1" "$WORK_ROOT/got-$1" > "$WORK_ROOT/diff-$1"
+	diff >&2 -udw "$TEST_ROOT/expected-$1" "$WORK_ROOT/got-$1"
 }
 
 mkdir -p "$maildir"
@@ -28,19 +37,30 @@ cd -- "$maildir"
 
 export TZ=EST
 rm -rf new cur tmp .mrssstate.*
-do_mrss
+do_mrss 1 2s
 do_check 0
 
-# State file works correctly.
-export TZ=MTZ
-rm -rf new cur tmp
-do_mrss
-do_check 1
-
-# Existing files are not touched.
+echo Existing files are not touched.
 export TZ=GMT
 for f in new/* cur/*; do
-	echo blabla >>"$f"
+	truncate -s0 "$f"
 done
-do_mrss
+do_mrss 1 2s
+do_check 1
+
+echo State file works correctly. Expect no updates.
+export TZ=MTZ
+rm -rf new cur tmp
+do_mrss 1 2s
 do_check 2
+
+echo Do nothing because not expired.
+do_mrss 2 999s
+do_check 2
+
+echo Wait for feeds to be expired.
+sleep 3
+
+echo Updated content gets the same Message-ID.
+do_mrss 2 2s
+do_check 3

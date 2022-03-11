@@ -21,8 +21,14 @@
 		<id>ENTRY-ID1</id>
 		<title>ENTRY-TITLE1</title>
 		<updated>2000-01-01T00:00:00Z</updated>
-		<summary type="html">ENTRY-SUMMARY1</summary>
+		<summary>ENTRY-SUMMARY1</summary>
 		<author></author>
+	</entry>
+	<entry>
+		<id>ENTRY-ID2</id>
+		<title>ENTRY-TITLE2</title>
+		<updated>2000-01-03T00:00:00Z</updated>
+		<summary type="text">ENTRY-SUMMARY2</summary>
 	</entry>
 	<entry>
 	</entry>
