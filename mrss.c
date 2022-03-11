@@ -673,7 +673,8 @@ open_feed_curl(xmlParserCtxtPtr *xml, char const *url)
 	long status_code;
 	check_curl(curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &status_code));
 
-	return 200 == status_code;
+	/* Non-HTTP requests return 0. */
+	return !status_code || 200 == status_code;
 }
 
 static int
