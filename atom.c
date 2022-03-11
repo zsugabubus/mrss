@@ -70,9 +70,10 @@ atom_parse_entry(xmlNodePtr node, struct entry const *feed)
 		.link = atom_get_link(node),
 		.subject = xmlGetNsChildContent(node, "title", NS_ATOM),
 		.text = text,
+		.feed = feed,
 	};
 
-	entry_process(&entry, feed);
+	entry_process(&entry);
 
 	entry_destroy(&entry);
 }
@@ -93,6 +94,7 @@ atom_parse(xmlNodePtr node)
 			.mime_type = MIME_TEXT_HTML,
 			.content = xmlGetNsChildContent(node, "description", NS_ATOM),
 		},
+		.feed = NULL,
 	};
 
 	for eachXmlElement(child, node)

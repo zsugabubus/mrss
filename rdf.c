@@ -50,11 +50,12 @@ rdf_parse_item(xmlNodePtr node, struct entry const *feed)
 			.mime_type = MIME_TEXT_HTML,
 			.content = xmlGetNsChildContent(node, "description", NS_RSS10),
 		},
+		.feed = feed,
 	};
 	if (!entry.lang)
 		entry.lang = xmlStrdup(feed->lang);
 
-	entry_process(&entry, feed);
+	entry_process(&entry);
 
 	entry_destroy(&entry);
 }
@@ -77,6 +78,7 @@ rdf_parse_channel(xmlNodePtr node, xmlNodePtr rdf)
 			.mime_type = MIME_TEXT_HTML,
 			.content = xmlGetNsChildContent(node, "description", NS_RSS10),
 		},
+		.feed = NULL,
 	};
 
 	for eachXmlElement(child, seq) {

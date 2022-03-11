@@ -20,9 +20,10 @@ struct entry {
 	xmlChar *link;
 	xmlChar *subject;
 	struct media text;
+	struct entry const *feed;
 };
 
-void entry_process(struct entry const *entry, struct entry const *feed);
+void entry_process(struct entry const *entry);
 void entry_destroy(struct entry *entry);
 
 int atom_parse(xmlNodePtr);

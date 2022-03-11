@@ -42,9 +42,10 @@ rss_parse_item(xmlNodePtr node, struct entry const *feed)
 		.link = link,
 		.subject = xmlGetNsChildContent(node, "title", NULL),
 		.text = text,
+		.feed = feed,
 	};
 
-	entry_process(&entry, feed);
+	entry_process(&entry);
 
 	entry_destroy(&entry);
 }
@@ -61,6 +62,7 @@ rss_parse_channel(xmlNodePtr node)
 			.mime_type = MIME_TEXT_HTML,
 			.content = xmlGetNsChildContent(node, "description", NULL),
 		},
+		.feed = NULL,
 	};
 
 	for eachXmlElement(child, node)

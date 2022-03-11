@@ -261,18 +261,21 @@ hash_str(HASH hash, char const *s)
 }
 
 static void
-hash_entry(HASH hash, struct entry const *e, char const *source)
+hash_entry(HASH hash, struct entry const *e, int with_content)
 {
 	SHA1_CTX ctx;
 	sha1_init(&ctx);
 
 	sha1_update_strnull(&ctx, (char const *)e->id);
 	sha1_update_strnull(&ctx, (char const *)e->link);
-	sha1_update_strnull(&ctx, (char const *)e->lang);
-	sha1_update_strnull(&ctx, (char const *)e->subject);
-	sha1_update_strnull(&ctx, (char const *)e->date);
-	sha1_update_strnull(&ctx, (char const *)e->text.content);
-	sha1_update_strnull(&ctx, source);
+	if (with_content) {
+		sha1_update_strnull(&ctx, (char const *)e->lang);
+		sha1_update_strnull(&ctx, (char const *)e->subject);
+		sha1_update_strnull(&ctx, (char const *)e->date);
+		sha1_update_strnull(&ctx, (char const *)e->text.content);
+	}
+	if (e->feed)
+		sha1_update_strnull(&ctx, (char const *)e->feed->link);
 
 	BYTE bytes[16];
 	sha1_final(&ctx, bytes);
@@ -475,10 +478,10 @@ mail_write_from_hdr(struct mail *mail, struct entry const *feed)
 }
 
 static void
-mail_write_message_id_hdr(struct mail *mail, char const *name, struct entry const *feed)
+mail_write_feed_msgid_hdr(struct mail *mail, char const *name, struct entry const *feed)
 {
 	HASH id;
-	hash_entry(id, feed, NULL);
+	hash_entry(id, feed, 1);
 
 	char *s = (char *)feed->link;
 	char *slash = get_domain(&s);
@@ -496,7 +499,7 @@ generate_root_mail(struct entry const *feed)
 	struct mail mail;
 	mail_create(&mail);
 
-	mail_write_message_id_hdr(&mail, "Message-ID", feed);
+	mail_write_feed_msgid_hdr(&mail, "Message-ID", feed);
 	mail_write_from_hdr(&mail, feed);
 	mail_write_hdr(&mail, "Subject: %t", feed->subject);
 	mail_write_hdr(&mail, "Link: %t", feed->link);
@@ -506,7 +509,7 @@ generate_root_mail(struct entry const *feed)
 	}
 
 	HASH id;
-	hash_entry(id, feed, NULL);
+	hash_entry(id, feed, 1);
 	mail_commit(&mail, id, 0);
 }
 
@@ -557,8 +560,9 @@ write_xml(char *buf, size_t size, size_t nmemb, void *userdata)
 }
 
 void
-entry_process(struct entry const *entry, struct entry const *feed)
+entry_process(struct entry const *entry)
 {
+	struct entry const *feed = entry->feed;
 	msg(LOG_INFO, "Received entry [%s] '%s'", entry->date, entry->subject);
 
 	time_t date = 0;
@@ -579,16 +583,16 @@ entry_process(struct entry const *entry, struct entry const *feed)
 	struct mail mail;
 	mail_create(&mail);
 
-	HASH id;
-	hash_entry(id, entry, (char const *)feed->link);
 
 	char datetime[50];
 	time_t now = time(NULL);
 	strftime(datetime, sizeof datetime, RFC_822, localtime(&now));
 	mail_write_hdr(&mail, "Received: mrss; %s", datetime);
 
+	HASH id;
+	hash_entry(id, entry, 0);
 	mail_write_hdr(&mail, "Message-ID: <%s>", id);
-	mail_write_message_id_hdr(&mail, "In-Reply-To", feed);
+	mail_write_feed_msgid_hdr(&mail, "In-Reply-To", feed);
 	mail_write_hdr(&mail, "Content-Language: %t", entry->lang);
 	mail_write_hdr(&mail, "Content-Transfer-Encoding: binary");
 
@@ -608,6 +612,7 @@ entry_process(struct entry const *entry, struct entry const *feed)
 		fprintf(mail.stream, "\n%s", (char const *)entry->text.content);
 	}
 
+	hash_entry(id, entry, 1);
 	mail_commit(&mail, id, 1);
 }
 
