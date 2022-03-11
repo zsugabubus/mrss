@@ -34,6 +34,25 @@ atom_get_link(xmlNodePtr node)
 	return NULL;
 }
 
+static struct media
+atom_get_text(xmlNodePtr node)
+{
+	if (!node)
+		return (struct media){ 0 };
+
+	xmlChar *type = xmlGetNoNsProp(node, XML_CHAR "type");
+	int is_text = !type || !xmlStrcmp(type, XML_CHAR "text");
+	if (type)
+		xmlFree(type);
+
+	return (struct media){
+		.mime_type = is_text
+			? MIME_TEXT_PLAIN
+			: MIME_TEXT_HTML,
+		.content = xmlNodeGetContent(node),
+	};
+}
+
 static void
 atom_parse_entry(xmlNodePtr node, struct entry const *feed)
 {
@@ -43,23 +62,14 @@ atom_parse_entry(xmlNodePtr node, struct entry const *feed)
 		category_term  = xmlGetNoNsProp(category, XML_CHAR "term");
 
 	struct media text;
-	text = (struct media){
-		.mime_type = MIME_TEXT_HTML,
-		.content = xmlGetNsChildContent(node, "content", NS_ATOM),
-	};
+	text = atom_get_text(xmlGetNsChild(node, "content", NS_ATOM));
 	if (!text.content) {
 		xmlNodePtr media_group = xmlGetNsChild(node, "group", NS_MEDIA);
 		if (media_group)
-			text = (struct media){
-				.mime_type = MIME_TEXT_PLAIN,
-				.content = xmlGetNsChildContent(media_group, "description", NS_MEDIA),
-			};
+			text = atom_get_text(xmlGetNsChild(media_group, "description", NS_MEDIA));
 	}
 	if (!text.content)
-		text = (struct media){
-			.mime_type = MIME_TEXT_HTML,
-			.content = xmlGetNsChildContent(node, "summary", NS_ATOM),
-		};
+		text = atom_get_text(xmlGetNsChild(node, "summary", NS_ATOM));
 
 	struct entry entry = {
 		.author = atom_get_author(node),
@@ -90,10 +100,7 @@ atom_parse(xmlNodePtr node)
 		.lang = xmlGetNsChildContent(node, "language", NS_ATOM),
 		.link = atom_get_link(node),
 		.subject = xmlGetNsChildContent(node, "title", NS_ATOM),
-		.text = (struct media){
-			.mime_type = MIME_TEXT_HTML,
-			.content = xmlGetNsChildContent(node, "description", NS_ATOM),
-		},
+		.text = atom_get_text(xmlGetNsChild(node, "description", NS_ATOM)),
 		.feed = NULL,
 	};
 
