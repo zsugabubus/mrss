@@ -39,12 +39,12 @@ static char const RFC_822[] = "%a, %d %b %Y %T %z";
 /* Shall be always GMT. Use with gmtime(). */
 static char const RFC_2616[] = "%a, %d %b %Y %T %Z";
 
-static char opt_proxy[1024];
 static char opt_from[128];
+static char opt_proxy[1024];
 static char opt_user_agent[128];
+static int opt_expiration = 0;
 static int opt_reply_to = 1;
 static int opt_verbose = 0;
-static int opt_expiration = 0;
 
 static long local_timezone;
 
