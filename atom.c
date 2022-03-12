@@ -5,12 +5,38 @@
 static xmlChar const NS_ATOM[] = "http://www.w3.org/2005/Atom";
 static xmlChar const NS_MEDIA[] = "http://search.yahoo.com/mrss/";
 
-static xmlChar *
-atom_get_author(xmlNodePtr node)
+static void
+atom_parse_authors(xmlNodePtr node, struct entry *e)
 {
-	return xmlGetNsChildContent(
-			xmlGetNsChild(node, "author", NS_ATOM),
-			"name", NS_ATOM);
+	struct entry_author *author = e->authors;
+	for eachXmlElement(child, node) {
+		if (!xmlTestNode(child, "author", NS_ATOM) &&
+		    !xmlTestNode(child, "contributor", NS_ATOM))
+			continue;
+		if (!ARRAY_IN(e->authors, author))
+			break;
+
+		author->name = xmlGetNsChildContent(child, "name", NS_ATOM);
+		author->email = xmlGetNsChildContent(child, "email", NS_ATOM);
+		++author;
+	}
+}
+
+static void
+atom_parse_categories(xmlNodePtr node, struct entry *e)
+{
+	struct entry_category *category = e->categories;
+	for eachXmlElement(child, node) {
+		if (!xmlTestNode(child, "category", NS_ATOM))
+			continue;
+		if (ARRAY_IN(e->categories, category))
+			break;
+
+		category->name = xmlGetNoNsProp(child, XML_CHAR "label");
+		if (!category->name)
+			category->name = xmlGetNoNsProp(child, XML_CHAR "term");
+		++category;
+	}
 }
 
 static xmlChar *
@@ -56,11 +82,6 @@ atom_get_text(xmlNodePtr node)
 static void
 atom_parse_entry(xmlNodePtr node, struct entry const *feed)
 {
-	xmlNodePtr category = xmlGetNsChild(node, "category", NS_ATOM);
-	xmlChar *category_term = NULL;
-	if (category)
-		category_term  = xmlGetNoNsProp(category, XML_CHAR "term");
-
 	struct media text;
 	text = atom_get_text(xmlGetNsChild(node, "content", NS_ATOM));
 	if (!text.content) {
@@ -72,8 +93,6 @@ atom_parse_entry(xmlNodePtr node, struct entry const *feed)
 		text = atom_get_text(xmlGetNsChild(node, "summary", NS_ATOM));
 
 	struct entry entry = {
-		.author = atom_get_author(node),
-		.category = category_term,
 		.date = xmlGetNsChildContent(node, "updated", NS_ATOM),
 		.id = xmlGetNsChildContent(node, "id", NS_ATOM),
 		.lang = xmlStrdup(feed->lang),
@@ -82,10 +101,12 @@ atom_parse_entry(xmlNodePtr node, struct entry const *feed)
 		.text = text,
 		.feed = feed,
 	};
+	atom_parse_authors(node, &entry);
+	atom_parse_categories(node, &entry);
 
 	entry_process(&entry);
 
-	entry_destroy(&entry);
+	entry_uninit(&entry);
 }
 
 int
@@ -95,7 +116,6 @@ atom_parse(xmlNodePtr node)
 		return 0;
 
 	struct entry feed = {
-		.author = atom_get_author(node),
 		.id = xmlGetNsChildContent(node, "id", NS_ATOM),
 		.lang = xmlGetNsChildContent(node, "language", NS_ATOM),
 		.link = atom_get_link(node),
@@ -103,12 +123,14 @@ atom_parse(xmlNodePtr node)
 		.text = atom_get_text(xmlGetNsChild(node, "description", NS_ATOM)),
 		.feed = NULL,
 	};
+	atom_parse_authors(node, &feed);
+	atom_parse_categories(node, &feed);
 
 	for eachXmlElement(child, node)
 		if (xmlTestNode(child, "entry", NS_ATOM))
 			atom_parse_entry(child, &feed);
 
-	entry_destroy(&feed);
+	entry_uninit(&feed);
 
 	return 1;
 }

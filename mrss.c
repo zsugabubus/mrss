@@ -58,23 +58,28 @@ struct {
 static jmp_buf errctx;
 static int have_errctx;
 
-static void
-media_destroy(struct media *media)
-{
-	xmlFree(media->content);
-}
-
 void
-entry_destroy(struct entry *e)
+entry_uninit(struct entry *e)
 {
-	xmlFree(e->author);
-	xmlFree(e->category);
+	for (struct entry_author *author = e->authors;
+	      ARRAY_IN(e->authors, author);
+	      ++author)
+	{
+		xmlFree(author->name);
+		xmlFree(author->email);
+	}
+
+	for (struct entry_category *category = e->categories;
+	      ARRAY_IN(e->categories, category);
+	      ++category)
+		xmlFree(category->name);
+
 	xmlFree(e->date);
 	xmlFree(e->id);
 	xmlFree(e->lang);
 	xmlFree(e->link);
 	xmlFree(e->subject);
-	media_destroy(&e->text);
+	xmlFree(e->text.content);
 }
 
 static void
@@ -490,6 +495,67 @@ mail_write_feed_msgid_hdr(struct mail *mail, char const *name, struct entry cons
 		*slash = '/';
 }
 
+static int
+entry_has_author(struct entry const *e, struct entry_author const *author)
+{
+	for (struct entry_author const *x = e->authors;
+	      ARRAY_IN(e->authors, x);
+	      ++x)
+		if (x->name &&
+		    author->name &&
+		    !xmlStrcmp(x->name, author->name))
+			return 1;
+	return 0;
+}
+
+static void
+mail_write_author_hdr(struct mail *mail, struct entry const *e)
+{
+	for (struct entry_author const *author = e->authors;
+	      ARRAY_IN(e->authors, author);
+	      ++author)
+	{
+		if (e->feed && entry_has_author(e->feed, author))
+			continue;
+
+		if (author->name && author->email)
+			mail_write_hdr(mail, "Author: %t <%t>",
+					author->name, author->email);
+		else if (author->name)
+			mail_write_hdr(mail, "Author: %t",
+					author->name);
+	}
+}
+
+static int
+entry_has_category(struct entry const *e, struct entry_category const *category)
+{
+	for (struct entry_category const *x = e->categories;
+	      ARRAY_IN(e->categories, x);
+	      ++x)
+		if (x->name &&
+		    category->name &&
+		    !xmlStrcmp(x->name, category->name))
+			return 1;
+	return 0;
+}
+
+static void
+mail_write_category_hdr(struct mail *mail, struct entry const *e)
+{
+	for (struct entry_category const *category = e->categories;
+	      ARRAY_IN(e->categories, category);
+	      ++category)
+	{
+		if (e->feed && entry_has_category(e->feed, category))
+			continue;
+
+		if (category->name)
+			mail_write_hdr(mail, "X-Category: %t",
+					category->name);
+	}
+}
+
 static void
 generate_root_mail(struct entry const *feed)
 {
@@ -603,9 +669,10 @@ entry_process(struct entry const *entry)
 
 	mail_write_from_hdr(&mail, feed);
 	mail_write_hdr(&mail, "Subject: %t", entry->subject);
-	/* TODO: Support multiple categories. */
-	mail_write_hdr(&mail, "X-Category: %t", entry->category);
-	mail_write_hdr(&mail, "Author: %t", entry->author);
+	mail_write_category_hdr(&mail, feed);
+	mail_write_category_hdr(&mail, entry);
+	mail_write_author_hdr(&mail, feed);
+	mail_write_author_hdr(&mail, entry);
 	mail_write_hdr(&mail, "Link: %t", entry->link);
 	if (entry->text.content) {
 		mail_write_hdr(&mail, "Content-Type: %s", entry->text.mime_type);

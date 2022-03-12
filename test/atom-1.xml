@@ -6,6 +6,11 @@
 	<title> FEED-TITLE	</title>
 	<updated>2000-01-01T00:00:00Z</updated>
 	<subtitle>FEED-SUBTITLE</subtitle>
+	<author>
+		<name>John Doe</name>
+	</author>
+	<category term="xxx-42" label="cat"/>
+	<category label="lion"/>
 	<entry>
 		<id>ENTRY-ID0</id>
 		<title>ENTRY-TITLE0</title>
@@ -14,7 +19,24 @@
 		<summary type="html">ENTRY-SUMMARY0</summary>
 		<content type="html">ENTRY-CONTENT0</content>
 		<author>
-			<name>Alice</name>
+			<name>Al Ice</name>
+			<email>hello@world.dot</email>
+		</author>
+		<author>
+			<email>"b o b"@world.dot</email>
+		</author>
+		<contributor>
+			<name>Caröl</name>
+		</contributor>
+		<contributor>
+			<name>Dän</name>
+			<email>dan@not.here</email>
+		</contributor>
+		<author>
+			<name>John Doe</name>
+		</author>
+		<author>
+			<name>Eve</name>
 		</author>
 	</entry>
 	<entry>
@@ -23,6 +45,7 @@
 		<updated>2000-01-01T00:00:00Z</updated>
 		<summary>ENTRY-SUMMARY1</summary>
 		<author></author>
+		<category term="dog"/>
 	</entry>
 	<entry>
 		<id>ENTRY-ID2</id>

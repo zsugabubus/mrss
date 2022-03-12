@@ -6,6 +6,36 @@
 static xmlChar const NS_CONTENT[] = "http://purl.org/rss/1.0/modules/content/";
 
 static void
+rss_parse_authors(xmlNodePtr node, struct entry *e)
+{
+	struct entry_author *author = e->authors;
+	for eachXmlElement(child, node) {
+		if (!xmlTestNode(child, "author", NULL))
+			continue;
+		if (!ARRAY_IN(e->authors, author))
+			break;
+
+		author->name = xmlNodeGetContent(child);
+		++author;
+	}
+}
+
+static void
+rss_parse_category(xmlNodePtr node, struct entry *e)
+{
+	struct entry_category *category = e->categories;
+	for eachXmlElement(child, node) {
+		if (!xmlTestNode(child, "category", NULL))
+			continue;
+		if (!ARRAY_IN(e->categories, category))
+			break;
+
+		category->name = xmlNodeGetContent(child);
+		++category;
+	}
+}
+
+static void
 rss_parse_item(xmlNodePtr node, struct entry const *feed)
 {
 	xmlNodePtr guid_node = xmlGetNsChild(node, "guid", NULL);
@@ -35,7 +65,6 @@ rss_parse_item(xmlNodePtr node, struct entry const *feed)
 		};
 
 	struct entry entry = {
-		.author = xmlGetNsChildContent(node, "author", NULL),
 		.date = xmlGetNsChildContent(node, "pubDate", NULL),
 		.id = guid,
 		.lang = xmlStrdup(feed->lang),
@@ -44,17 +73,18 @@ rss_parse_item(xmlNodePtr node, struct entry const *feed)
 		.text = text,
 		.feed = feed,
 	};
+	rss_parse_authors(node, &entry);
+	rss_parse_category(node, &entry);
 
 	entry_process(&entry);
 
-	entry_destroy(&entry);
+	entry_uninit(&entry);
 }
 
 static void
 rss_parse_channel(xmlNodePtr node)
 {
 	struct entry feed = {
-		.category = xmlGetNsChildContent(node, "category", NULL),
 		.lang = xmlGetNsChildContent(node, "language", NULL),
 		.link = xmlGetNsChildContent(node, "link", NULL),
 		.subject = xmlGetNsChildContent(node, "title", NULL),
@@ -64,12 +94,13 @@ rss_parse_channel(xmlNodePtr node)
 		},
 		.feed = NULL,
 	};
+	rss_parse_category(node, &feed);
 
 	for eachXmlElement(child, node)
 		if (xmlTestNode(child, "item", NULL))
 			rss_parse_item(child, &feed);
 
-	entry_destroy(&feed);
+	entry_uninit(&feed);
 }
 
 int

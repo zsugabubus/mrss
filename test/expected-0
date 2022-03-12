@@ -28,6 +28,10 @@ Content-Language: en-us
 Content-Transfer-Encoding: binary
 Date: Fri, 30 May 2003 06:06:42 -0500
 From: "Liftoff News" <feed@liftoff.msfc.nasa.gov>
+X-Category: Cat
+X-Category: Lion?
+X-Category: Dog
+X-Category: =?UTF-8?Q?W=C3=B6lf?=
 Link: http://liftoff.msfc.nasa.gov/2003/05/30.html#item572
 Content-Type: text/html; charset=utf-8
 
@@ -52,6 +56,8 @@ Content-Transfer-Encoding: binary
 Date: Tue, 27 May 2003 03:37:32 -0500
 From: "Liftoff News" <feed@liftoff.msfc.nasa.gov>
 Subject: The Engine That Does More
+X-Category: Cat
+X-Category: Lion?
 Link: http://liftoff.msfc.nasa.gov/news/2003/news-VASIMR.asp
 Content-Type: text/html; charset=utf-8
 
@@ -63,7 +69,11 @@ Content-Transfer-Encoding: binary
 Date: Fri, 31 Dec 1999 19:00:00 -0500
 From: " FEED-TITLE	" <feed@feed-alternate>
 Subject: ENTRY-TITLE0
-Author: Alice
+Author: John Doe
+Author: Al Ice <hello@world.dot>
+Author: =?UTF-8?Q?Car=C3=B6l?=
+Author: =?UTF-8?Q?D=C3=A4n?= <dan@not.here>
+Author: Eve
 Link: entry-alternate
 Content-Type: text/html; charset=utf-8
 
@@ -74,6 +84,8 @@ In-Reply-To: <887ca5d8437f6977@liftoff.msfc.nasa.gov>
 Content-Language: en-us
 Content-Transfer-Encoding: binary
 From: "Liftoff News" <feed@liftoff.msfc.nasa.gov>
+X-Category: Cat
+X-Category: Lion?
 
 ==> new/0.8fd66f8ef435485e.localhost <==
 Message-ID: <fa28088c2a29d0b2@localhost>
@@ -82,6 +94,7 @@ Content-Transfer-Encoding: binary
 Date: Fri, 31 Dec 1999 19:00:00 -0500
 From: " FEED-TITLE	" <feed@feed-alternate>
 Subject: ENTRY-TITLE1
+Author: John Doe
 Content-Type: text/plain; charset=utf-8
 
 ENTRY-SUMMARY1
@@ -93,6 +106,10 @@ Content-Transfer-Encoding: binary
 Date: Tue, 03 Jun 2003 04:39:21 -0500
 From: "Liftoff News" <feed@liftoff.msfc.nasa.gov>
 Subject: =?UTF-8?Q?St=C3=A5r_C=C4=AFty?=
+X-Category: Cat
+X-Category: Lion?
+Author: Alice
+Author: Bob
 Link: http://liftoff.msfc.nasa.gov/news/2003/news-starcity.asp
 Content-Type: text/html; charset=utf-8
 
@@ -102,6 +119,7 @@ Message-ID: <9ebe1108e3f4cc8c@localhost>
 In-Reply-To: <aa0f928db3c42d58@feed-alternate>
 Content-Transfer-Encoding: binary
 From: " FEED-TITLE	" <feed@feed-alternate>
+Author: John Doe
 
 ==> new/0.ac4eb1b92be302d5.localhost <==
 Message-ID: <b03732613b527b8b@localhost>
@@ -129,6 +147,7 @@ Content-Transfer-Encoding: binary
 Date: Sun, 02 Jan 2000 19:00:00 -0500
 From: " FEED-TITLE	" <feed@feed-alternate>
 Subject: ENTRY-TITLE2
+Author: John Doe
 Content-Type: text/plain; charset=utf-8
 
 ENTRY-SUMMARY2

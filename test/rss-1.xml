@@ -1,23 +1,28 @@
 <?xml version="1.0"?>
 <rss version="2.0">
 	<channel>
+		<category>Cat</category>
+		<category>Lion?</category>
 		<title>Liftoff News</title>
 		<link>http://liftoff.msfc.nasa.gov/</link>
 		<description>Liftoff to Space Exploration.</description>
 		<language>en-us</language>
 		<pubDate>Tue, 10 Jun 2003 04:00:00 GMT</pubDate>
-		<lastBuildDate>Tue, 10 Jun 2003 09:41:01 GMT</lastBuildDate>
 		<item>
 			<title>Står Cįty</title>
 			<link>http://liftoff.msfc.nasa.gov/news/2003/news-starcity.asp</link>
 			<description>Höw dö Äméricàns gêt rœåḑy to &lt;a href="http://howe.iki.rssi.ru"&gt;Star City&lt;/a&gt;.</description>
 			<pubDate>Tue, 03 Jun 2003 09:39:21 GMT</pubDate>
 			<guid>http://liftoff.msfc.nasa.gov/2003/06/03.html#item573</guid>
+			<author>Alice</author>
+			<author>Bob</author>
 		</item>
 		<item>
 			<description>Skÿ wàtchers</description>
 			<pubDate>Fri, 30 May 2003 11:06:42 GMT</pubDate>
 			<guid>http://liftoff.msfc.nasa.gov/2003/05/30.html#item572</guid>
+			<category>Dog</category>
+			<category>Wölf</category>
 		</item>
 		<item>
 			<title>The Engine That Does More</title>

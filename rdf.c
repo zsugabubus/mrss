@@ -57,7 +57,7 @@ rdf_parse_item(xmlNodePtr node, struct entry const *feed)
 
 	entry_process(&entry);
 
-	entry_destroy(&entry);
+	entry_uninit(&entry);
 }
 
 static void
@@ -92,7 +92,7 @@ rdf_parse_channel(xmlNodePtr node, xmlNodePtr rdf)
 		rdf_parse_item(item, &feed);
 	}
 
-	entry_destroy(&feed);
+	entry_uninit(&feed);
 }
 
 int
