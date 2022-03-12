@@ -41,6 +41,7 @@ static char const RFC_2616[] = "%a, %d %b %Y %T %Z";
 
 static char opt_proxy[1024];
 static char opt_from[128];
+static char opt_user_agent[128];
 static int opt_reply_to = 1;
 static int opt_verbose = 0;
 static int opt_expiration = 0;
@@ -731,6 +732,8 @@ open_feed_curl(xmlParserCtxtPtr *xml, char const *url)
 	check_curl(curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_xml));
 	check_curl(curl_easy_setopt(curl, CURLOPT_WRITEDATA, xml));
 	check_curl(curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers));
+	check_curl(curl_easy_setopt(curl, CURLOPT_USERAGENT,
+			*opt_user_agent ? opt_user_agent : NULL));
 	check_curl(curl_easy_setopt(curl, CURLOPT_URL, url));
 
 	check_curl(curl_easy_perform(curl));
@@ -1011,6 +1014,8 @@ exec_cmd(char const *cmd, char const *arg)
 		exec_cmd_url(arg);
 	else if (!strcmp(cmd, "urls"))
 		exec_cmd_urls(arg);
+	else if (!strcmp(cmd, "user_agent"))
+		set_str_opt(opt_user_agent, sizeof opt_user_agent, arg);
 	else if (!strcmp(cmd, "verbose")) {
 		set_choice_opt(&opt_verbose, arg);
 		msg(LOG_NOTICE, "Version: " VERSION);
