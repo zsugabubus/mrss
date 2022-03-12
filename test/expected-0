@@ -22,7 +22,7 @@ Subject:  FEED-TITLE
 Link: feed-alternate
 
 ==> new/0.5f62d036c5826d31.localhost <==
-Message-ID: <799754734ba20638>
+Message-ID: <799754734ba20638@localhost>
 In-Reply-To: <887ca5d8437f6977@liftoff.msfc.nasa.gov>
 Content-Language: en-us
 Content-Transfer-Encoding: binary
@@ -33,7 +33,7 @@ Content-Type: text/html; charset=utf-8
 
 Skÿ wàtchers
 ==> new/0.66499afdb7ae35f8.localhost <==
-Message-ID: <ea0923832036b803>
+Message-ID: <ea0923832036b803@localhost>
 In-Reply-To: <67113a98acde341e@web.nvd.nist.gov>
 Content-Language: en-us
 Content-Transfer-Encoding: binary
@@ -45,7 +45,7 @@ Content-Type: text/html; charset=utf-8
 
 The Z-Wave
 ==> new/0.6843828a8201dff1.localhost <==
-Message-ID: <8ee64252eb887495>
+Message-ID: <8ee64252eb887495@localhost>
 In-Reply-To: <887ca5d8437f6977@liftoff.msfc.nasa.gov>
 Content-Language: en-us
 Content-Transfer-Encoding: binary
@@ -57,7 +57,7 @@ Content-Type: text/html; charset=utf-8
 
 Before man travels
 ==> new/0.86723a6e803f8c5d.localhost <==
-Message-ID: <e6c96613b56bb085>
+Message-ID: <e6c96613b56bb085@localhost>
 In-Reply-To: <aa0f928db3c42d58@feed-alternate>
 Content-Transfer-Encoding: binary
 Date: Fri, 31 Dec 1999 19:00:00 -0500
@@ -69,14 +69,14 @@ Content-Type: text/html; charset=utf-8
 
 ENTRY-CONTENT0
 ==> new/0.898010af13b37023.localhost <==
-Message-ID: <ccfca2b2cd460846>
+Message-ID: <ccfca2b2cd460846@localhost>
 In-Reply-To: <887ca5d8437f6977@liftoff.msfc.nasa.gov>
 Content-Language: en-us
 Content-Transfer-Encoding: binary
 From: "Liftoff News" <feed@liftoff.msfc.nasa.gov>
 
 ==> new/0.8fd66f8ef435485e.localhost <==
-Message-ID: <fa28088c2a29d0b2>
+Message-ID: <fa28088c2a29d0b2@localhost>
 In-Reply-To: <aa0f928db3c42d58@feed-alternate>
 Content-Transfer-Encoding: binary
 Date: Fri, 31 Dec 1999 19:00:00 -0500
@@ -86,7 +86,7 @@ Content-Type: text/plain; charset=utf-8
 
 ENTRY-SUMMARY1
 ==> new/0.982f19e6dfcd625e.localhost <==
-Message-ID: <a7dc37b577cff42e>
+Message-ID: <a7dc37b577cff42e@localhost>
 In-Reply-To: <887ca5d8437f6977@liftoff.msfc.nasa.gov>
 Content-Language: en-us
 Content-Transfer-Encoding: binary
@@ -98,13 +98,13 @@ Content-Type: text/html; charset=utf-8
 
 Höw dö Äméricàns gêt rœåḑy to <a href="http://howe.iki.rssi.ru">Star City</a>.
 ==> new/0.9cac1df2c686d8f1.localhost <==
-Message-ID: <9ebe1108e3f4cc8c>
+Message-ID: <9ebe1108e3f4cc8c@localhost>
 In-Reply-To: <aa0f928db3c42d58@feed-alternate>
 Content-Transfer-Encoding: binary
 From: " FEED-TITLE	" <feed@feed-alternate>
 
 ==> new/0.ac4eb1b92be302d5.localhost <==
-Message-ID: <b03732613b527b8b>
+Message-ID: <b03732613b527b8b@localhost>
 In-Reply-To: <67113a98acde341e@web.nvd.nist.gov>
 Content-Language: en-us
 Content-Transfer-Encoding: binary
@@ -116,14 +116,14 @@ Content-Type: text/html; charset=utf-8
 
 Z-Wave devices
 ==> new/0.b2d208a7a2a1bf37.localhost <==
-Message-ID: <0c9986cfc0ca3163>
+Message-ID: <0c9986cfc0ca3163@localhost>
 In-Reply-To: <67113a98acde341e@web.nvd.nist.gov>
 Content-Language: en-us
 Content-Transfer-Encoding: binary
 From: "National Vulnerability Database" <feed@web.nvd.nist.gov>
 
 ==> new/0.e7dc4effe93698f0.localhost <==
-Message-ID: <25ef8abb0f402851>
+Message-ID: <25ef8abb0f402851@localhost>
 In-Reply-To: <aa0f928db3c42d58@feed-alternate>
 Content-Transfer-Encoding: binary
 Date: Sun, 02 Jan 2000 19:00:00 -0500

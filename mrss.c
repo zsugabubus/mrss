@@ -591,7 +591,7 @@ entry_process(struct entry const *entry)
 
 	HASH id;
 	hash_entry(id, entry, 0);
-	mail_write_hdr(&mail, "Message-ID: <%s>", id);
+	mail_write_hdr(&mail, "Message-ID: <%s@localhost>", id);
 	mail_write_feed_msgid_hdr(&mail, "In-Reply-To", feed);
 	mail_write_hdr(&mail, "Content-Language: %t", entry->lang);
 	mail_write_hdr(&mail, "Content-Transfer-Encoding: binary");
