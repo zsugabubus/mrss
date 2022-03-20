@@ -756,7 +756,15 @@ open_feed_program(xmlParserCtxtPtr *xml, char const *command)
 		msg(LOG_ERR, "Failed to execute command");
 	for (size_t n; (n = fread(buf, 1, sizeof buf, stream));)
 		write_xml(buf, 1, n, xml);
-	return EXIT_SUCCESS == pclose(stream);
+
+	if (EXIT_SUCCESS == pclose(stream))
+		return 1;
+	/* No XML == not changed. */
+	else if (!xml)
+		return 0;
+
+	msg(LOG_ERR, "Process terminated with failure");
+	abort();
 }
 
 static void
