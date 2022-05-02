@@ -1008,13 +1008,17 @@ exec_cmd(char const *cmd, char const *arg)
 		if (chdir(path) < 0)
 			msg(LOG_ERR, "Failed to change current directory to '%s': %s",
 					path, strerror(errno));
-	} else if (!strcmp(cmd, "config") || !strcmp(cmd, "include"))
+	} else if (!strcmp(cmd, "config"))
 		exec_cmd_file(arg);
 	else if (!strcmp(cmd, "expire"))
 		set_int_opt(&opt_expiration, arg);
 	else if (!strcmp(cmd, "from"))
 		set_str_opt(opt_from, sizeof opt_from, arg);
-	else if (!strcmp(cmd, "proxy"))
+	else if (!strcmp(cmd, "include")) {
+		char path[PATH_MAX];
+		set_shellstr_opt(path, sizeof path, arg);
+		exec_cmd_file(path);
+	} else if (!strcmp(cmd, "proxy"))
 		set_str_opt(opt_proxy, sizeof opt_proxy, arg);
 	else if (!strcmp(cmd, "reply_to"))
 		set_choice_opt(&opt_reply_to, arg);
