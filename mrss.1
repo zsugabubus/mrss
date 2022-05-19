@@ -1,4 +1,4 @@
-.TH MRSS "1" "March 2022"
+.TH MRSS "1" "May 2022"
 .SH NAME
 mrss \- transform web feeds to Maildir mails
 .
@@ -35,20 +35,20 @@ Read file lines and execute whitespace separated
 .IR COMMAND - ARG
 pairs.
 .IP
-Empty lines and lines starting with
-.B #
+Empty lines and lines starting with hash mark
+.RB ( # )
 are ignored.
 .
 .TP
 .BI expire\  INTEGER
 Specify minimum time of expiration in seconds. Non-expired feeds are considered
-up-to-date and no connection is made to the server. Number may be optionally
+up-to-date and no contact is made to the server. Number may be optionally
 suffixed with
 .BR d ay,\  h our,\  m inute\ or\  s econd
 units.
 .
 .IP
-Respect Expires: header sent by the server (if it is more late).
+If server sends Expires: header, the later time will be chosen.
 .
 .TP
 .BI from\  STRING
@@ -89,8 +89,8 @@ Read file lines and execute
 .B url
 command for each line.
 .IP
-Empty lines and lines starting with
-.B #
+Empty lines and lines starting with hash mark
+.RB ( # )
 are ignored.
 .
 .TP
