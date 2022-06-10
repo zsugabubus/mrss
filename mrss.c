@@ -328,48 +328,37 @@ rfc822_classify(unsigned char const *s)
 	return ret;
 }
 
-static int
-rfc2047_is_special(unsigned char c)
-{
-	return c <= '?' || '~' < c;
-}
-
-/* Perform "Q" encoding.
- * @see https://datatracker.ietf.org/doc/html/rfc2047 */
+/* "Q"-encoding. */
 static void
-rfc2047_write_q(unsigned char const *s, FILE *stream)
+rfc2047_write_qenc(unsigned char const *s, FILE *stream)
 {
 	static char const HEX[16] = "0123456789ABCDEF";
 
 	fwrite("=?UTF-8?Q?", 1, 10, stream);
 	for (; *s; ++s) {
-		if (rfc2047_is_special(*s)) {
-			if (' ' == *s) {
-				fputc('_', stream);
-			} else {
-				fputc('=', stream);
-				fputc(HEX[*s >> 4], stream);
-				fputc(HEX[*s & 0xf], stream);
-			}
-		} else {
+		if (' ' == *s) {
+			fputc('_', stream);
+		} else if (('0' <= *s && *s <= '9') ||
+		           ('a' <= *s && *s <= 'z') ||
+		           ('A' <= *s && *s <= 'Z') ||
+		           '+' == *s || '-' == *s)
+		{
 			fputc(*s, stream);
+		} else {
+			fputc('=', stream);
+			fputc(HEX[*s >> 4], stream);
+			fputc(HEX[*s & 0xf], stream);
 		}
 	}
 	fwrite("?=", 1, 2, stream);
 }
 
-static int
-rfc822_is_qtext(unsigned char c)
-{
-	return !('"' == c || '\\' == c || '\r' == c);
-}
-
 static void
-rfc822_write_qstr(unsigned char const *s, FILE *stream)
+rfc822_write_quoted(unsigned char const *s, FILE *stream)
 {
 	fputc('"', stream);
 	for (; *s; ++s) {
-		if (!rfc822_is_qtext(*s))
+		if ('"' == *s || '\\' == *s || '\r' == *s)
 			fputc('\\', stream);
 		fputc(*s, stream);
 	}
@@ -425,11 +414,11 @@ mail_write_hdr(struct mail *mail, char const *fmt, ...)
 			fputs(arg, mail->stream);
 		} else switch (type) {
 		case RFC822_TEXT:
-			rfc822_write_qstr((unsigned char *)arg, mail->stream);
+			rfc822_write_quoted((unsigned char *)arg, mail->stream);
 			break;
 
 		case RFC822_NONASCII:
-			rfc2047_write_q((unsigned char *)arg, mail->stream);
+			rfc2047_write_qenc((unsigned char *)arg, mail->stream);
 			break;
 
 		default:
